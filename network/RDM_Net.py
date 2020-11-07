@@ -25,7 +25,7 @@ class DepthEstimationNet(BaseModel):
         self.encoder = _make_encoder_()
     
 
-    
+
     def forward(self, x):
         out1 = self.encoder.conv_e1(x)
         out2 = self.encoder.max_e1(out1)
@@ -48,10 +48,10 @@ def _make_encoder_():
 
 def _make_wsm_layers_(num_of_layers):
     wsm_layers = []
-    wsm_d1 = WSMLayer(1664, 1664, 416, 208, 16)
-    wsm_d2 = WSMLayer(832, 832, 208, 104, 32)
-    wsm_d3 = WSMLayer(416, 416, 104, 52, 64)
-    wsm_d4 = WSMLayer(208, 208, 52, 26, 128)
+    wsm_d1 = WSMLayer(1664, 1664, 416, 208, 16, 16)
+    wsm_d2 = WSMLayer(832, 832, 208, 104, 32, 32)
+    wsm_d3 = WSMLayer(416, 416, 104, 52, 64, 64)
+    wsm_d4 = WSMLayer(208, 208, 52, 26, 128, 128)
 
     if num_of_layers > 0:
         wsm_layers.append(wsm_d1)
@@ -120,76 +120,125 @@ class ALSLayer(nn.Module):
         """
 
 class WSMLayer(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_in, wsm_in, size):
+    def __init__(self, in_channels, out_channels, kernel_in, wsm_in, kernel_size, stride):
         super(WSMLayer, self).__init__()
 
         """Code to assemble wsm block"""
 
-
+        #2 times deconvolution
         self.deconv1 = nn.Sequential(
             nn.ConvTranspose2d(in_channels, out_channels, kernel_size=3),
-            nn.ConvTranspose2d(in_channels, out_channels, kernel_size=3))
-        self.conv1_1 = nn.Sequential(
-            nn.Conv2d(kernel_in, kernel_in, 1),
-            nn.Conv2d(kernel_in, kernel_in, 1),
-            nn.Conv2d(kernel_in, kernel_in, 1),
-            nn.Conv2d(kernel_in, kernel_in, 1),
-            nn.Conv2d(kernel_in, kernel_in, 1)
+            nn.ConvTranspose2d(in_channels, out_channels, kernel_size=3)
+            )
+
+        #5 1x1x convolutions
+        self.conv1_1 = nn.Conv2d(in_channels, out_channels, 1)
+        self.conv1_2 = nn.Conv2d(in_channels, out_channels, 1)
+        self.conv1_3 = nn.Conv2d(in_channels, out_channels, 1)
+        self.conv1_4 = nn.Conv2d(in_channels, out_channels, 1)
+        self.conv1_5 = nn.Conv2d(in_channels, out_channels, 1)
+        
+        #WSM layer outputs concatenated with convolution layer output
+        self.conv2_1 = nn.Conv2d(in_channels, out_channels, 3)
+        self.conv2_2 = nn.Conv2d(in_channels, out_channels, 3)
+        self.wsm_wx3 = _make_wsm_vertical_(in_channels, out_channels, (kernel_size,3), stride)
+        self.wsm_wx3 = _make_wsm_horizontal_(in_channels, out_channels, (3,kernel_size), stride)
+        
+        
+
+    def forward(self, x):
+
+        out1 = self.deconv1(x)
+        #first conv block
+        out1_1 = self.conv1_1(out1)
+        out1_2 = self.conv1_2(out1)
+        out1_3 = self.conv1_3(out1)
+        out1_4 = self.conv1_4(out1)
+        out1_5 = self.conv1_5(out1)
+        #second conv and wsm block
+        out2_1 = self.conv2_1(out1_2)
+        out2_2 = self.conv2_2(out1_3)
+        out_wsm_wx3 = self.wsm_wx3(out1_4)
+        out_wsm_3xh = self.wsm_3xh(out1_5)
+
+        #complete wsm layer outputs 
+        completion_vertical = []
+        completion_horizontal = []
+        for i in range(out_wsm_wx3.shape()[3]):
+            completion_vertical = torch.cat((completion_vertical, out_wsm_wx3),0)
+            i=+1
+        
+        for i in range(out_wsm_3xh.shape()[3]):
+            completion_horizontal = torch.cat((completion_horizontal, out_wsm_3xh),0)
+            i=+1
+
+        #concatenate output of wsm layers and convolution layers
+        cat = self.concat((out2_1, out2_2, completion_vertical, completion_horizontal))
+
+        return cat
+        
+
+
+
+def _make_wsm_vertical_(in_channels, out_channels, kernel_size, stride):
+    """Stride has to be chosen in a way that only one convolution is performed
+       The output is a compressed feature column.
+    """
+    wsm_module = nn.Sequential(
+        nn.ZeroPad2d((0,0,1,1)),
+        nn.Conv2d(in_channels, out_channels, kernel_size, stride)
         )
 
-    def forward(self, x):
-
-          """Forward pass.
-        Args:
-            x (tensor): input data (image)
-        Returns:
-            tensor: depth
-        """
+    return wsm_module
 
 
-def wsm_vertical(x):
-    #pad top and bottom
-    m = nn.ZeroPad2d((0,0,1,1)) 
-    padded = m(x)
-    #Wx3 conv
-    conv = nn.Conv2d(1, 1, (3,5), (1,5))
-    conv_col = conv(padded)
-    replicated = conv_col
-    for i in range (5):
-        replicated = torch.cat((replicated, conv_col),0)
-        i+=1
-    return replicated
+def _make_wsm_horizontal_(in_channels, out_channels, kernel_size, stride):
+    """Stride has to be chosen in a way that only one convolution is performed
+       Padding different for horizontal and vertical. Output is a compressed feature
+    """
+    wsm_module = nn.Sequential(
+        nn.ZeroPad2d((1,1,0,0)),
+        nn.Conv2d(in_channels, out_channels, kernel_size, stride)
+        )
 
-def wsm_horizontal(x):
-    m = nn.ZeroPad2d((1,1,0,0))
-    padded = m(x)
-    #3xH conv
-    conv = nn.Conv2d(1, 1, (5,3), (5,1))
-    conv_row = conv(padded)
-    replicated = conv_row
-    for i in range (5):
-        replicated = torch.cat((replicated, conv_row),0)
-        i+=1
-    return replicated
+    return wsm_module
 
 
+#From DORN paper
 class Ordinal_Layer(nn.Module):
-    def __init__(self, in_channels):
+    def __init__(self, input_channels):
         super(Ordinal_Layer, self).__init__()
 
-        """Code to assemble decoder blocks
-        
-        
-        """
-    
     def forward(self, x):
-
-          """Forward pass.
-        Args:
-            x (tensor): input data (image)
-        Returns:
-            tensor: depth
         """
+        :param x: N X H X W X C, N is batch_size, C is channels of features
+        :return: ord_labels is ordinal outputs for each spatial locations , size is N x H X W X C (C = 2K, K is interval of SID)
+                 decode_label is the ordinal labels for each position of Image I
+        """
+        N, C, H, W = x.size()
+        ord_num = C // 2
+
+        """
+        replace iter with matrix operation
+        fast speed methods
+        """
+        A = x[:, ::2, :, :].clone()
+        B = x[:, 1::2, :, :].clone()
+
+        A = A.view(N, 1, ord_num * H * W)
+        B = B.view(N, 1, ord_num * H * W)
+
+        C = torch.cat((A, B), dim=1)
+        C = torch.clamp(C, min=1e-8, max=1e4)  # prevent nans
+
+        ord_c = nn.functional.softmax(C, dim=1)
+
+        ord_c1 = ord_c[:, 1, :].clone()
+        ord_c1 = ord_c1.view(-1, ord_num, H, W)
+
+        decode_c = torch.sum((ord_c1 > 0.5), dim=1).view(-1, 1, H, W)
+        # decode_c = torch.sum(ord_c1, dim=1).view(-1, 1, H, W)
+        return decode_c, ord_c1
 
 if __name__ == "__main__":
     
@@ -197,9 +246,7 @@ if __name__ == "__main__":
     #model = DepthEstimationNet("")
     #print(model)
     print(image)
-    print(wsm_horizontal(image))
-    print(wsm_vertical(image))
-
+    
     # pretrained = model(image)
     # print(pretrained)
 
