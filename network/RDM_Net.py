@@ -27,6 +27,7 @@ class DepthEstimationNet(BaseModel):
 
 
     def forward(self, x):
+        #encoder propagation
         out1 = self.encoder.conv_e1(x)
         out2 = self.encoder.max_e1(out1)
         out3 = self.encoder.dense_e2(out2)
@@ -173,7 +174,7 @@ class WSMLayer(nn.Module):
             i=+1
 
         #concatenate output of wsm layers and convolution layers
-        cat = self.concat((out2_1, out2_2, completion_vertical, completion_horizontal))
+        cat = torch.cat((out1_1,out2_1,out2_2,completion_vertical,completion_horizontal),0)
 
         return cat
         
@@ -202,6 +203,17 @@ def _make_wsm_horizontal_(in_channels, out_channels, kernel_size, stride):
         )
 
     return wsm_module
+
+def wsm_test(image):
+    """Stride has to be chosen in a way that only one convolution is performed
+        Padding different for horizontal and vertical. Output is a compressed feature
+    """
+    wsm_module = nn.Sequential(
+        nn.ZeroPad2d((1,1,0,0)),
+        nn.Conv2d(1, 1, (5,3), (5,1))
+        )
+    
+    return wsm_module(image)
 
 
 #From DORN paper
@@ -241,13 +253,24 @@ class Ordinal_Layer(nn.Module):
         return decode_c, ord_c1
 
 if __name__ == "__main__":
-    
-    image = torch.rand((1,1,5,5))
-    #model = DepthEstimationNet("")
-    #print(model)
+    #encoder test lines
+    print("Encoder test\n")
+    image = torch.randn((16,3,226,226))
+    model = DepthEstimationNet("")
+    print("Image\n")
     print(image)
-    
-    # pretrained = model(image)
-    # print(pretrained)
+    print(model)
+    pretrained = model(image)
+    print("Encoder result\n")
+    print(pretrained)
+    print("WSMLayer test\n")
+    #wsm test lines
+    print("Test image\n")
+    wsm_test_image = torch.rand((1,1,5,5))
+    print(wsm_test_image)
+    compressed_horizontal = wsm_test(wsm_test_image)
+    print("WSM compressed feature\n")
+    print(compressed_horizontal)
+
 
 
