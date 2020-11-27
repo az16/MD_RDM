@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
 import torchvision
-
-
+import scipy.io 
 class BaseModel(nn.Module):
     def load(self, path):
         """Load model from file.
@@ -21,7 +20,7 @@ class BaseModel(nn.Module):
 class DepthEstimationNet(BaseModel):
     def __init__(self, path):
         super(DepthEstimationNet, self).__init__()
-
+        self.quantizers = Quantization()
         self.encoder = _make_encoder_()
     
 
@@ -65,15 +64,6 @@ def _get_denseNet_Components(denseNet):
     encoder = nn.Module()
     encoder.conv_e1 = nn.Conv2d(in_channels=3, kernel_size=7, stride=2, out_channels=96, padding=3)
     encoder.max_e1 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-    """
-    encoder.dense_e2 = denseNet._DenseLayer(96, 48, bn_size=57, drop_rate= 0.0, memory_efficient=True)
-    encoder.trans_e2 = denseNet._Transition(num_input_features=48, num_output_features=192)
-    encoder.dense_e3 = denseNet._DenseLayer(192, 48, bn_size=29, drop_rate= 0.0, memory_efficient=True)
-    encoder.trans_e3 = denseNet._Transition(num_input_features=48, num_output_features=384)
-    encoder.dense_e4 = denseNet._DenseLayer(384, 48, bn_size=15, drop_rate= 0.0, memory_efficient=True)
-    encoder.trans_e4 = denseNet._Transition(num_input_features=48, num_output_features=1056)
-    """
-
     encoder.dense_e2 = denseNet._DenseBlock(6, 96, 57, 48, 0.0, True)
     encoder.trans_e2 = denseNet._Transition(num_input_features=384, num_output_features=192)
     encoder.dense_e3 = denseNet._DenseBlock(12, 192, 29, 48, 0.0, True)
@@ -85,7 +75,7 @@ def _get_denseNet_Components(denseNet):
     return encoder
 
 class Decoder(nn.Module):
-    def __init__(self, in_channels, num_wsm_layers, use_als_layer, DORN, Lloyd):
+    def __init__(self, in_channels, num_wsm_layers, DORN):
         super(Decoder, self).__init__()
 
         """Code to assemble decoder block"""
@@ -95,9 +85,10 @@ class Decoder(nn.Module):
         self.wsm_block = _make_wsm_layers_(num_wsm_layers)
         if DORN:
             self.ord_layer = Ordinal_Layer()
-        elif Lloyd:
-            self.ord_layer = Lloyd_Quantization_Layer()
-    
+        else:
+            None  
+
+
     def forward(self, x):
 
         x = self.dense_layer(x)
@@ -107,26 +98,6 @@ class Decoder(nn.Module):
         x = self.ord_layer(x)
 
         return x
-
-
-class ALSLayer(nn.Module):
-    def __init__(self, in_channels):
-        super(ALSLayer, self).__init__()
-
-        """Code to assemble decoder blocks
-        
-        
-        """
-    
-    def forward(self, x):
-
-          """Forward pass.
-        Args:
-            x (tensor): input data (image)
-        Returns:
-            tensor: depth
-        """
-
 
 def _make_wsm_layers_(num_of_layers):
     
@@ -228,9 +199,6 @@ class WSMLayer(nn.Module):
 
         return cat
         
-
-
-
 def _make_wsm_vertical_(in_channels, out_channels, kernel_size, stride):
     """Stride has to be chosen in a way that only one convolution is performed
        The output is a compressed feature column.
@@ -241,7 +209,6 @@ def _make_wsm_vertical_(in_channels, out_channels, kernel_size, stride):
         )
 
     return wsm_module
-
 
 def _make_wsm_horizontal_(in_channels, out_channels, kernel_size, stride):
     """Stride has to be chosen in a way that only one convolution is performed
@@ -264,7 +231,6 @@ def wsm_test(image):
         )
     
     return wsm_module(image)
-
 
 #From DORN paper
 class Ordinal_Layer(nn.Module):
@@ -301,15 +267,29 @@ class Ordinal_Layer(nn.Module):
         decode_c = torch.sum((ord_c1 > 0.5), dim=1).view(-1, 1, H, W)
         # decode_c = torch.sum(ord_c1, dim=1).view(-1, 1, H, W)
         return decode_c, ord_c1
-    
-class Lloyd_Quantization_Layer(nn.Module):
+
+class Quantization():
     def __init__(self):
-        super(Lloyd_Quantization_Layer, self).__init__()
+        """
+        Quantizing levels are taken from the creators paper und held in this class for
+        easier access.
+        """
+        quant_8 = scipy.io.loadmat("depth_ratio_008_008_quant.mat")
+        quant_16 = scipy.io.loadmat("depth_ratio_016_016_quant.mat")
+        quant_32 = scipy.io.loadmat("depth_ratio_032_032_quant.mat")
+        quant_64 = scipy.io.loadmat("depth_ratio_064_064_quant.mat")
+        quant_128 = scipy.io.loadmat("depth_ratio_128_128_quant.mat")
 
-    def forward(self, x):
-        print(x)
-        return x
-
+        self.depth_ratio_008_008_quant = quant_8['depth_ratio_008_008_quant']
+        self.depth_ratio_008_008_quant_inv = quant_8['depth_ratio_008_008_quant_inv']
+        self.depth_ratio_016_016_quant = quant_16['depth_ratio_016_016_quant']
+        self.depth_ratio_016_016_quant_inv = quant_16['depth_ratio_016_016_quant_inv']
+        self.depth_ratio_032_032_quant = quant_32['depth_ratio_032_032_quant']
+        self.depth_ratio_032_032_quant_inv = quant_32['depth_ratio_032_032_quant_inv']
+        self.depth_ratio_064_064_quant = quant_64['depth_ratio_064_064_quant']
+        self.depth_ratio_064_064_quant_inv = quant_64['depth_ratio_064_064_quant_inv']
+        self.depth_ratio_128_128_quant = quant_128['depth_ratio_128_128_quant']
+        self.depth_ratio_128_128_quant_inv = quant_8['depth_ratio_128_128_quant_inv']
 
 if __name__ == "__main__":
     #encoder test lines
@@ -337,9 +317,13 @@ if __name__ == "__main__":
 
     #decoder test lines
     
-    encoder_output = torch.randn((1, 1056, 8, 8))
-    decoder_block  = Decoder(1056, num_wsm_layers=2, use_als_layer=False, DORN=False,Lloyd=True)
-    print(decoder_block(encoder_output).shape)
+    # encoder_output = torch.randn((1, 1056, 8, 8))
+    # decoder_block  = Decoder(1056, num_wsm_layers=4, DORN=False)
+    # print(decoder_block(encoder_output).shape)
+
+    file = scipy.io.loadmat("depth_ratio_016_016_quant.mat")
+    array = file['depth_ratio_016_016_quant']
+    print(array)
     
 
 
