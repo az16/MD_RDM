@@ -343,6 +343,6 @@ class DORN(nn.Module):
 
 
 if __name__ == "__main__":
-    dorn = DORN().cuda()
-    img = torch.rand((1, 3, 64, 64)).cuda()
+    dorn = DORN()
+    img = torch.rand((1, 3, 64, 64))
     dorn(img)
