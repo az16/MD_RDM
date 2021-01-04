@@ -3,7 +3,8 @@ import torch.nn as nn
 import torchvision
 #import network.transforms as t
 import numpy as np
-import scipy.io 
+import scipy.io
+import computations as cp
 from PIL import Image
 
 class BaseModel(nn.Module):
@@ -297,44 +298,56 @@ class Quantization():
     
     def get_with_id(self, id):
         if id == 3:
-            return [self.depth_ratio_008_008_quant, self.depth_ratio_008_008_quant_inv]
+            return self.depth_ratio_008_008_quant, self.depth_ratio_008_008_quant_inv
         elif id == 4:
-            return [self.depth_ratio_016_016_quant, self.depth_ratio_016_016_quant_inv]
+            return self.depth_ratio_016_016_quant, self.depth_ratio_016_016_quant_inv
         elif id == 5:
-            return [self.depth_ratio_032_032_quant, self.depth_ratio_032_032_quant_inv]
+            return self.depth_ratio_032_032_quant, self.depth_ratio_032_032_quant_inv
         elif id == 6:
-            return [self.depth_ratio_064_064_quant, self.depth_ratio_064_064_quant_inv]
+            return self.depth_ratio_064_064_quant, self.depth_ratio_064_064_quant_inv
         elif id == 7:
-            return [self.depth_ratio_128_128_quant, self.depth_ratio_128_128_quant_inv]
+            return self.depth_ratio_128_128_quant, self.depth_ratio_128_128_quant_inv
     
     def get_size_id(self, id):
         if id == 3:
-            return (8,8)
+            return 8
         elif id == 4:
-            return (16,16)
+            return 16
         elif id == 5:
-            return (32,32)
+            return 32
         elif id == 6:
-            return (64,64)
+            return 64
         elif id == 7:
-            return (128,128)
+            return 128
 
-def sparse_comparison_v1(d_3):
-    reshaped_d_3 = torch.reshape(d_3, (d_3.shape[0], d_3.shape[1], d_3.shape[2]*d_3.shape[3]))
-    #reshaped_d_3_reciproc = torch.clone(reshaped_d_3)
-    sparse_m = torch.empty_like(reshaped_d_3)
+def sparse_comparison_v1(d_3, quant):
+    reshaped_d_3 = torch.reshape(d_3, (1, 1, d_3.shape[2]*d_3.shape[3]))
+    sparse_m = torch.empty(d_3.shape[2], d_3.shape[3], d_3.shape[2]*d_3.shape[3])
 
     for i in range(d_3.shape[2]):
         for j in range(d_3.shape[3]):
-            sparse_m[0][0][:] = reshaped_d_3[0][0]/d_3[0][0][i,j]
+            sparse_m[i][j][:] = reshaped_d_3/d_3[0][0][i][j]
+
+    r_sparse = torch.reshape(sparse_m, (1, 64*64))
+    tmp = torch.empty(r_sparse.shape)
+
+    for i in range(r_sparse.shape[1]):
+        distances = [abs(x[0]-r_sparse[0][i]) for x in quant.depth_ratio_008_008_quant]
+        index = distances.index(min(distances))+1
+        tmp[0][i] = quant.depth_ratio_008_008_quant_inv[index][0]
     
-    print(sparse_m)
+    relative_depth_map = torch.reshape(tmp, (64,64))  
+    relative_depth_map = cp.fill_sparse_R3(relative_depth_map)
+       
+    print(relative_depth_map)  
+    return relative_depth_map
+    
 
-
-def sparse_comparison_id(dn, dn_1):
-    sparse_m = torch.empty(dn.shape[0], dn.shape[1], 3*3)
-    clone = torch.empty_like(sparse_m)
-
+def sparse_comparison_id(dn, dn_1, quant, id):
+    size_dn_1, size_dn = cp.get_size(id)
+    sparse_m = torch.empty(dn.shape[2], dn.shape[3], size_dn_1**2)
+    q = torch.reshape(dn, (1, size_dn**2))
+    p = torch.reshape(dn_1, (1, size_dn_1**2))
     for index_row in range(dn.shape[2]):
             for index_col in range(dn.shape[3]):
                 index_resized_row = np.floor(index_row/2)
@@ -343,99 +356,22 @@ def sparse_comparison_id(dn, dn_1):
                 index_row_end = index_row_start+2
                 index_col_start = int(min(max(index_resized_col, 0), dn_1.shape[3]-3))
                 index_col_end = index_col_start+3
-                comparison_area = get_resized_area(index_row_start, index_row_end, index_col_start, index_col_end, dn_1)
-                sparse_m[0][0][:] = comparison_area[0][0] / dn[0][0][index_row][index_col]
-                clone = torch.cat((clone, sparse_m), 2)
-        
-    print(clone)
+                comparison_area = cp.get_resized_area(index_row_start, index_row_end, index_col_start, index_col_end, dn_1)
+                sparse_m[index_row][index_col][:] = comparison_area[0][0] / dn[0][0][index_row][index_col]
+               
+    quantizer, inverse = quant.get_with_id(id)
+    r_sparse = torch.reshape(sparse_m, (size_dn**2,size_dn_1**2))
+    #cp.fill_sparse_Rn(r_sparse, q, p, 100) 
+    """
+    tmp = torch.empty(r_sparse.shape)
+
+    for i in range(r_sparse.shape[1]):
+        distances = [abs(x[0]-r_sparse[0][i]) for x in quantizer]
+        index = distances.index(min(distances))+1
+        tmp[0][i] = inverse[index][0]
     
-def get_resized_area(r_s, r_e, c_s, c_e, dn_1):
-    kernel = torch.cat((dn_1[0][0][r_s][c_s:c_e], dn_1[0][0][r_s+1][c_s:c_e], dn_1[0][0][r_e][c_s:c_e]), 0)
-    #print((r_s,c_s))
-    result = torch.empty(dn_1.shape[0], dn_1.shape[1], 9)
-    result[0][0][:] = kernel 
-
-    return result
-
-def relative_labeling_v1(depth_map, quant):
-    relative_depth_map = torch.empty(depth_map.shape[0], depth_map.shape[1], depth_map.shape[2]*depth_map.shape[3])
-    depth_map_reshape = torch.reshape(depth_map, (1, 1, depth_map.shape[2]*depth_map.shape[3]))
-    for index_row in range(depth_map.shape[2]):
-        for index_col in range(depth_map.shape[3]):
-            relative_depth_map[index_row][index_col][:] = depth_map_reshape / depth_map[index_row][index_col]
-    
-
-    # relative_depth_map(axbxab tensor) -> depth_label(axbxabx40 tensor)
-    depth_label = torch.empty(depth_map.shape[0], depth_map[1], depth_map.shape[2]*depth_map.shape[3], 40)
-    for index_chapter in range(40):
-        depth_label[:][:][:][index_chapter] = (relative_depth_map >= quant.depth_ratio_008_008_quant(index_chapter))
-
-    # reshape depth_label to (axbx40ab)
-    depth_label = torch.reshape(depth_map, (1, 1, 40*depth_map.shape[2]*depth_map.shape[3]))
-
-    return depth_label
-
-def relative_labeling_v1_inv(depth_label, quant):
-    # reshape depth_label from (axbx40ab) to (axbxabx40)
-    depth_label = torch.reshape(depth_label, len(depth_label[0]), len(depth_label[1]), len(depth_label[2])/40, 40)
-
-    relative_depth_map = quant.depth_ratio_008_008_quant_inv[np.sum(depth_label[3])+1]
-
-    return relative_depth_map
-
-def relative_labeling_id(depth_map, quant, id):
-    # trans = t.Compose([
-    #     t.Resize(quant.get_size_id(id), Image.BOX)
-    # ])
-
-    depth_map_resized = np.exp(trans(np.log(depth_map)))
-
-    # depth_map(axb matrix) -> relative_depth_map(axbx(5x5) tensor)
-    relative_depth_map = torch.empty(len(depth_map[0]), len(depth_map[1]), 5*5)
-    for index_row in range(len(depth_map[0])):
-        for index_col in range(len(depth_map[1])):
-            index_resized_row = np.ceil(index_row/2)
-            index_resized_col = np.ceil(index_col/2)
-            index_row_start = np.min(np.max(index_resized_row-2, 1), len(depth_map_resized[0]-4))
-            index_row_end = index_row_start+4
-            index_col_start = np.min(np.max(index_resized_col-2, 1), len(depth_map_resized[1]-4))
-            index_col_end = index_col_start+4
-            relative_depth_map[index_row][index_col][:] = torch.reshape(depth_map_resized[index_row_start:index_row_end][index_col_start:index_col_end], (1, 1, 5*5))/depth_map[index_row][index_col]
-        
-    
-
-    # relative_depth_map(axbxab tensor) -> depth_label(axbxabx40 tensor)
-    depth_label = torch.empty(len(depth_map[0]), len(depth_map[1]), 5*5, 40)
-
-    
-    q_levels = quant.get_with_id(id)
-
-    for index_chapter in range(40):
-        depth_label[:][:][:][index_chapter] = (relative_depth_map >= q_levels[0][index_chapter])
-    
-    # reshape depth_label to (axbx40ab)
-    depth_label = torch.reshape(depth_label, (len(depth_map[0]), len(depth_map[1]), 40*5*5))
-
-    return depth_label
-
-    def relative_labeling_v1_inv(depth_label, quant):
-        depth_label = torch.reshape(depth_label, len(depth_label[0]), len(depth_label[1]), 5*5, 40)
-
-        relative_depth_map = quant.get_with_id(id)[1][sum(depth_label[4])+1]
-class Lloyd_Quant(nn.Module):
-    def __init__(self, id, quant):
-        super(Lloyd_Quant, self).__init__()
-
-        self.id = id
-        self.quant = quant
-
-    
-    def forward(self, x):
-
-        if self.id < 1:
-            return relative_labeling_v1(x, quant)
-        else:
-            return relative_labeling_id(x, quant, id)
+    relative_depth_map = torch.reshape(tmp, (dn.shape[2]*dn.shape[3], size_dn_1**2))    
+    """
         
 if __name__ == "__main__":
     #encoder test lines
@@ -463,19 +399,22 @@ if __name__ == "__main__":
 
     #decoder test lines
     
-    encoder_output = torch.randn((1, 1, 64, 64))
-    encoder_output2 = torch.randn((1, 1, 128, 128))
-    #quant = Quantization()
+    encoder_output = torch.randint(1,10,(1, 1, 8, 8))
+    encoder_output2 = torch.randint(1,10,(1, 1, 16, 16))
+    quant = Quantization()
     #decoder_block_1 = Decoder(1056, num_wsm_layers=0, DORN=False, id=0, quant=quant)
     #x = decoder_block_1(encoder_output)
     #print(x)
-
-    sparse_comparison_id(encoder_output2, encoder_output)
+    #sparse_comparison_v1(encoder_output, quant)
+    # print(labels)
+    # print(labels.shape)
+    sparse_comparison_id(encoder_output2, encoder_output, quant, 4)
     #print(get_resized_area(0,3,0,3,encoder_output).shape)
 
 
-    #test = Quantization()
-    #print(test.depth_ratio_008_008_quant_inv)
+    # test = Quantization()
+    # print(len(test.depth_ratio_008_008_quant))
+    # print(len(test.depth_ratio_008_008_quant_inv))
     # print(test.depth_ratio_016_016_quant[-1])
     # print(test.depth_ratio_032_032_quant[-1])
 
