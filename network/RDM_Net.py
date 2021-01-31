@@ -55,8 +55,6 @@ class DepthEstimationNet(BaseModel):
 
         return x
         
-    
-
 def _make_encoder_():
     denseNet = torchvision.models.densenet
     encoder = _get_denseNet_Components(denseNet)
@@ -87,11 +85,6 @@ class Decoder(nn.Module):
 
         self.dense_layer = torchvision.models.densenet._DenseBlock(24, 1056, 8, 48, 0.0, True)
         self.wsm_block = _make_wsm_layers_(num_wsm_layers)
-        if DORN:
-            self.ord_layer = Ordinal_Layer()
-        else:
-            self.ord_layer = Lloyd_Quant(id, quant)  
-
 
     def forward(self, x):
 
@@ -236,7 +229,6 @@ def wsm_test(image):
     
     return wsm_module(image)
 
-#From DORN paper
 class Ordinal_Layer(nn.Module):
     def __init__(self, decoder_id, quantizer):
         super(Ordinal_Layer, self).__init__()
@@ -245,7 +237,7 @@ class Ordinal_Layer(nn.Module):
     
     def sparse_comparison_v1(self, d_3):
         reshaped_d_3 = torch.reshape(d_3, (1, 1, d_3.shape[2]*d_3.shape[3]))
-        sparse_m = torch.empty(d_3.shape[2], d_3.shape[3], d_3.shape[2]*d_3.shape[3])
+        sparse_m = torch.zeros(d_3.shape[2], d_3.shape[3], d_3.shape[2]*d_3.shape[3])
 
         for i in range(d_3.shape[2]):
             for j in range(d_3.shape[3]):
@@ -257,8 +249,8 @@ class Ordinal_Layer(nn.Module):
         return relative_depth_map
 
     def sparse_comparison_id(self, dn, dn_1, id):
-        size_dn_1, size_dn = cp.get_size(id)
-        sparse_m = torch.empty(dn.shape[2], dn.shape[3], size_dn_1**2)
+        #size_dn_1, size_dn = cp.get_size(id)
+        sparse_m = torch.zeros(dn.shape[2], dn.shape[3], dn_1.shape[2]**2)
       
         for index_row in range(dn.shape[2]):
                 for index_col in range(dn.shape[3]):
@@ -273,7 +265,7 @@ class Ordinal_Layer(nn.Module):
 
         depth_labels = torch.zeros(dn.shape[2], dn.shape[3], dn_1.shape[2]*dn_1.shape[3], 40)
         relative_depth_map = self.LloydQuantization(depth_labels, sparse_m, id=self.id)
-        print(relative_depth_map.shape)
+        #print(relative_depth_map.shape)
         return relative_depth_map
 
     def LloydQuantization(self, labels, relative_depths,  id=3):
@@ -386,15 +378,22 @@ class ALS_Layer():
         self.id = id
 
 
-    def forward(self, x):
-        if id == 3:
-            return cp.principal_eigen(x)
-        elif id >= 4:
-            splits = cp.split_matrix(x)
+    def do_als(self, d_n, dn_1=None):
+        N, C, H, W = d_n.size()
+
+        if id == 3 or not dn_1:
+            return cp.principal_eigen(d_n)
+        elif id == 4:
+            return (cp.alternating_least_squares(d_n, iterations=100)).view(N, C, H, W)
+        elif id > 4:
+            #depth maps of size 32x32 and larger are split for runtime optimization
+            splits = cp.split_matrix(d_n, dn_1, [cp.get_size(id)],[16,8])
             container = []
             for split in splits:
                 container.append(cp.alternating_least_squares(split, iterations=100))
-
+            restored_map = (cp.cat_splits(container)).view(N, C, H, W)
+            
+            return restored_map
         
 if __name__ == "__main__":
     #encoder test lines
@@ -430,7 +429,8 @@ if __name__ == "__main__":
     #print(x)
     ord = Ordinal_Layer(4, quant)
     #print(ord.DornOrdinalRegression(cp.depth2label_sid(encoder_output)))
-    print(ord.sparse_comparison_id(encoder_output2, encoder_output, 4))
+    comparision = ord.sparse_comparison_id(encoder_output2, encoder_output, 4)
+    cp.alternating_least_squares(comparision, n=4, limit=100)
 
 
     

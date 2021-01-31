@@ -1,5 +1,6 @@
 import numpy as np 
 import torch 
+import torch.nn as nn
 from scipy.sparse import linalg  as sp
 from scipy import sparse as s
 from statistics import geometric_mean as gm
@@ -28,11 +29,11 @@ def principal_eigen(p_3):
 
     # reciproc = np.reciprocal(eig_vec)
     # result = np.dot(reciproc,eig_vec.T)
-    result = torch.reshape(torch.from_numpy(eig_vec), (1, 1, 8, 8))
+    result = (torch.from_numpy(eig_vec)).view(1, 8, 8)
     #print(result)
     return result
 
-def alternating_least_squares(P, iterations=0):
+def als_obsolete(P, iterations=0):
     """
     Implemetation of ALS algorithm to approximate the comparison matrix
     P_n,n-1
@@ -40,62 +41,105 @@ def alternating_least_squares(P, iterations=0):
     P - the estimated comparison matrix (sparse)
     returns relative depth map from filled up matrix
     """
-    # P = P.cpu().detach().numpy()
-    # S = np.nonzero(P)
-    # S = np.vstack([S[0],S[1]]).T
-    #print(P, P.shape)
-    num_iter = 100
-    rmse_record = np.array([list(a) for a in zip(np.array([x for x in frange(0, num_iter+2, 0.5)]),np.zeros(2*num_iter+2))])
     
+    num_iter = iterations
+    rmse_record = np.array([list(a) for a in zip(np.array([x for x in frange(0, num_iter+1, 0.5)]),np.zeros(2*num_iter+1))])
     # Initialization  
-    component_row = torch.ones(P.shape[0], 1, P.shape[2])
-    component_col = torch.ones(P.shape[1], 1, P.shape[2])
+    component_row = torch.ones(P.shape[0], 1, P.shape[2]).double()
+    component_col = torch.ones(P.shape[1], 1, P.shape[2]).double()
+    valid = mask16x16()
+
     intermediate_mat = torch.zeros(P.shape)
-    print(component_col.T.shape)
-    #TODO optimize
     for index_page in range(P.shape[2]):
-        for r in range(P.shape[0]):
-            for c in range(P.shape[1]):
-                intermediate_mat[r][c][index_page] = component_row[c][0][index_page] * component_col.T[index_page][0][c]
-    
-    #print(intermediate_mat)
+        intermediate_mat[:,:,index_page] = torch.matmul(component_row[:,:,index_page],component_col[:, :, index_page].T)
 
-    rmse_record[0][1] = torch.mean((torch.square(intermediate_mat - P)))**0.5
-
+    rmse_record[0][1] = torch.mean((torch.square(intermediate_mat[:] - P[:] * valid)))**0.5
+    #print(rmse_record)
     # Repetitive ALS
     index_iter = 0
     while index_iter < num_iter:
         index_iter = index_iter + 1
-        #TODO optimize
-        component_row = torch.reshape(sum(component_col * P.permute([1,0,2]), 0), (1,P.shape[0],P.shape[2])).permute([1,0,2]) / torch.reshape(sum(component_col * component_col * P.permute([1,0,2]), 0),(1,P.shape[0],P.shape[2])).permute([1,0,2])
-        for index_page in range(P.shape[2]):
-            for r in range(P.shape[0]):
-                for c in range(P.shape[1]):
-                    intermediate_mat[r][c][index_page] = component_row[c][0][index_page] * component_col.T[index_page][0][c]
         
-        #print(P)
-        #print(intermediate_mat)
-        # print(torch.square(intermediate_mat - P))
-        # print(torch.mean((torch.square(intermediate_mat - P))))
-        rmse_record[2*index_iter+0][1] = torch.mean((torch.square(intermediate_mat - P)))**0.5
-        
-    
-        component_col = torch.reshape(sum(component_row * P, 0), (1,P.shape[0],P.shape[2])).permute([1,0,2])/torch.reshape(sum(component_row * component_row * P.permute([1,0,2]), 0),(1,P.shape[0],P.shape[2])).permute([1,0,2])
-        #TODO optimize
-        for index_page in range(P.shape[2]):
-            for r in range(P.shape[0]):
-                for c in range(P.shape[1]):
-                    intermediate_mat[r][c][index_page] = component_row[c][0][index_page] * component_col.T[index_page][0][c]
-        
-        rmse_record[2*index_iter+1][1] = torch.mean((torch.square(intermediate_mat - P)))**0.5
+        #component_row = torch.unsqueeze(sum(component_col * P.permute([1,0,2]) * valid.permute([1,0,2]), 0), 1) / torch.unsqueeze(sum(component_col * component_col * valid.permute([1,0,2]), 0), 1)
+        component_row = als_step(component_row.T, component_col)
        
+        for index_page in range(P.shape[2]):
+            intermediate_mat[:,:,index_page] = matmul(component_row[:,:,index_page], component_col[:,:,index_page].T)
+        #print("intermediate = {0}".format(intermediate_mat))
+        rmse_record[2*index_iter-1][1] = rmse(intermediate_mat, P)#torch.mean(torch.square((intermediate_mat - P * valid)))**0.5
+
+        #component_col = torch.unsqueeze(sum(component_row * P * valid, 0), 1)/ torch.unsqueeze(sum(component_row * component_row * valid, 0),1)     
+        component_col = als_step(component_col, component_row)
+     
+        for index_page in range(P.shape[2]):
+                    intermediate_mat[:,:,index_page] = matmul(component_row[:,:,index_page],component_col[:,:,index_page].T)
+        
+        rmse_record[2*index_iter][1] = rmse(intermediate_mat, P)#torch.mean((torch.square(intermediate_mat[:] - P[:]*valid)))**0.5
+
+        print("iteration: {:.0f}, rmse_list_len: {:.0f}".format(index_iter, 2*index_iter))
+    print("max_rmse_score: {:.5f}, min_rmse_score: {:.5f}".format(max(rmse_record[:,1]), min(rmse_record[:,1])))
     output_mat = intermediate_mat
     p = component_row.permute([0,2,1])
     q = component_col.permute([0,2,1])
-    return 
+    print("Filled mat shape: {0}, p vector shape: {1}, q vector shape: {2}".format(output_mat.shape, p.shape, q.shape))
+    return p.T
 
-def fill_intermediate(intermediate, row, col):
-    inter = torch.reshape
+def alternating_least_squares(sparse, n, limit = 100):
+    sparse = sparse.view(256, 64)
+    p = torch.rand((2**(2*n), 1)).double()
+    q = torch.rand((2**(2*n-2),1)).double()
+    
+    rmse_record = []
+
+    rmse_record.append(rmse(matmul(p,q.T), sparse))
+
+    #training loop
+    iteration = 0 
+    while(iteration < limit):
+        
+        p = als_step(sparse, q)
+        rmse_record.append(rmse(matmul(p,q.T), sparse))
+
+        q = als_step(sparse.T, p)
+        rmse_record.append(rmse(matmul(p,q.T), sparse))
+
+        print("iteration: {:.0f}".format(iteration+1))
+        print("rmse_losses: p = {0}, q = {1}".format(rmse_record[iteration], rmse_record[iteration+1]))
+
+        iteration = iteration + 1
+
+    
+
+
+def matmul(t1, t2, numpy=False):
+    if numpy:
+        return np.matmul(t1,t2)
+    return torch.matmul(t1,t2)
+
+def rmse(m1, m2):
+    return torch.mean((m1-m2)**2)**0.5
+
+def als_step(ratings, fixed_tensor, regularization_term = 0.05):
+        """
+        when updating the user matrix,
+        the item matrix is the fixed vector and vice versa
+        """
+        ratings = to_numpy(ratings)
+        fixed_tensor = to_numpy(fixed_tensor)
+        A = fixed_tensor.T.dot(fixed_tensor) + np.eye(fixed_tensor.shape[1]) * regularization_term
+        b = ratings.dot(fixed_tensor)
+        #print(A.shape)
+        A_inv = np.linalg.inv(A)
+        solve_vecs = b.dot(A_inv)
+        solve_vecs = from_numpy(solve_vecs)
+        #print(solve_vecs.shape)
+        return solve_vecs
+
+def from_numpy(tensor):
+    return torch.from_numpy(tensor)
+
+def to_numpy(torch_tensor):
+    return torch_tensor.cpu().detach().numpy()
 
 def split_matrix(d_n, d_n1, in_size, out_size):
     ratio = in_size/out_size
@@ -119,6 +163,17 @@ def split_matrix(d_n, d_n1, in_size, out_size):
 
     return (d_split, d_1_split)
 
+def summarize(tensor, axis):
+    result = torch.sum(tensor, axis)/tensor.shape[-1]
+    return result
+
+def cat_splits(splits):
+    result = splits.pop(0)
+    for split in splits:
+        result = torch.cat((result, split), 2)
+    
+    return result
+
 def geometric_mean(iterable, r, c):
     return np.array([x**(1/(r*c)) for x in iterable]).prod()
 
@@ -126,13 +181,13 @@ def get_size(id):
     if id == 3:
         return 8,8
     elif id == 4:
-        return 8,16
+        return 16,8
     elif id == 5:
-        return 16,32
+        return 32,16
     elif id == 6:
-        return 32,64
+        return 64,32
     elif id == 7:
-        return 64,128
+        return 128,64
 
 def merge_into_row(size, data_to_merge, start_index):
     print("start index: {0}".format(start_index))
@@ -141,7 +196,21 @@ def merge_into_row(size, data_to_merge, start_index):
     data_to_merge = data_to_merge.cpu().detach().numpy()
     result = np.hstack((first_split, data_to_merge, second_split))
     return torch.from_numpy(result)
-    
+
+def mask16x16():
+    mask = torch.zeros((16,16,64))
+    for index_row in range(16):
+                for index_col in range(16):
+                    index_resized_row = np.floor(index_row/2)
+                    index_resized_col = np.floor(index_col/2)
+                    index_row_start = int(min(max(index_resized_row, 0), 5))
+                    index_row_end = index_row_start+2
+                    index_col_start = int(min(max(index_resized_col, 0), 5))
+                    index_col_end = index_col_start+3
+                    comparison_area = get_resized_area(index_row_start, index_row_end, index_col_start, index_col_end, torch.ones((1,1,8,8)))
+                    mask[index_row][index_col][:] = comparison_area
+    return mask
+
 def get_resized_area(r_s, r_e, c_s, c_e, dn_1):
     """
     r_s - row start index
@@ -156,7 +225,7 @@ def get_resized_area(r_s, r_e, c_s, c_e, dn_1):
     kernel_r2 = dn_1[0][0][r_s+1][c_s:c_e]
     kernel_r3 = dn_1[0][0][r_e][c_s:c_e]
 
-    result = torch.ones(dn_1.shape[0], dn_1.shape[1], dn_1.shape[2],dn_1.shape[3])
+    result = torch.empty(dn_1.shape[0], dn_1.shape[1], dn_1.shape[2],dn_1.shape[3])
     result[0][0][r_s][c_s:c_e] = kernel_r1
     result[0][0][r_s+1][c_s:c_e] = kernel_r2
     result[0][0][r_e][c_s:c_e] = kernel_r3
@@ -222,3 +291,89 @@ def colored_depthmap(depth, d_min=None, d_max=None):
         d_max = np.max(depth)
     depth_relative = (depth - d_min) / (d_max - d_min)
     return 255 * plt.cm.jet(depth_relative)[:, :, :3]  # H, W, C
+
+def valid_range_maker(input_size, in_type):
+    window = []
+    if in_type == 1:
+        window = [
+            [0,1,0],
+            [1,1,1],
+            [0,1,0]]
+    elif in_type == 2:
+        window = [
+            [1,1,1],
+            [1,1,1],
+            [1,1,1]]
+    elif in_type == 4:
+        window = [
+            [0,0,1,0,0],
+            [0,1,1,1,0],
+            [1,1,1,1,1],
+            [0,1,1,1,0],
+            [0,0,1,0,0]]
+    elif in_type == 5:
+        window = [
+            [0,1,1,1,0],
+           [ 1,1,1,1,1],
+            [1,1,1,1,1],
+            [1,1,1,1,1],
+            [0,1,1,1,0]]
+    elif in_type == 8:
+        window = [
+            [1,1,1,1,1],
+            [1,1,1,1,1],
+            [1,1,1,1,1],
+            [1,1,1,1,1],
+            [1,1,1,1,1]]
+    
+    window = np.array(window)
+    distance = np.floor(np.sqrt(in_type)).astype(int) #in range[1-2]
+    
+    row_size = input_size[0]**2
+    col_size = input_size[1]**2
+    rc_ratio = input_size[0]/input_size[1]
+
+    valid_range = np.zeros((input_size[0], input_size[0], input_size[1], input_size[1]))
+
+    for index_row_col in range (input_size[0]):
+        for index_row_row in range (input_size[0]):
+            
+            index_col_col = np.ceil(index_row_col/rc_ratio) #in range [0-8]
+            index_col_row = np.ceil(index_row_row/rc_ratio) #in range [0-8]
+            
+            index_col_col_start = (max(index_col_col-distance, 0))#[0-6]
+            index_col_col_end = (min(index_col_col+distance, input_size[1])) #[1-input[1]]
+            index_col_row_start = (max(index_col_row-distance, 0))#[0-6]
+            index_col_row_end = (min(index_col_row+distance, input_size[1])) #[1-input[1]]
+            index_window_col_start = (index_col_col_start - (index_col_col-distance))
+            index_window_col_end = ((index_col_col+distance) - index_col_col_end)
+            index_window_row_start = (index_col_row_start - (index_col_row-distance))
+            index_window_row_end = ((index_col_row+distance) - index_col_row_end)
+
+            idx_v1 = np.array([x for x in range(index_col_row_start,index_col_row_end.astype(int))])
+            idx_v2 = np.array([x for x in range(index_col_col_start,index_col_col_end.astype(int))])
+            idx_v3 = np.array([x for x in range(1+index_window_row_start.astype(int),len(window)-index_window_row_end.astype(int))])
+            idx_v4 = np.array([x for x in range(1+index_window_col_start.astype(int),len(window)-index_window_col_end.astype(int))])
+
+            print(idx_v1, idx_v2, idx_v3, idx_v4)
+            if len(idx_v1 > 0):
+                valid_range[index_row_row, index_row_col, idx_v1, idx_v2] = window[idx_v3, idx_v4]
+
+    valid_range = torch.from_numpy(valid_range).view(row_size,col_size)
+
+    return valid_range
+
+def upsample(depth_map):
+    m = nn.Upsample(scale_factor=2, mode='nearest')
+    return m(depth_map)
+
+def get_fine_detail(depth_map):
+    pass
+def decompose_depth_map(de):
+    pass
+
+if __name__ == "__main__":
+    t1 = torch.randn((16, 1, 64))
+    t2 = torch.randn((1 ,64 ,16))
+    r = torch.matmul(t1,t2.T)
+    print(r.shape)
