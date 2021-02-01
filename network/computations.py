@@ -15,7 +15,7 @@ def principal_eigen(p_3):
     Approximation done using the largest eigenvector and preparing it for
     normalization.
 
-    p_3 - tensor containing comparison matrix 64x64
+    p_3 - comparison matrix 64x64
 
     returns p_3 with approximated values
 
@@ -33,7 +33,7 @@ def principal_eigen(p_3):
     #print(result)
     return result
 
-def als_obsolete(P, iterations=0):
+def als_old_version(P, iterations=0):
     """
     Implemetation of ALS algorithm to approximate the comparison matrix
     P_n,n-1
@@ -85,6 +85,15 @@ def als_obsolete(P, iterations=0):
     return p.T
 
 def alternating_least_squares(sparse, n, limit = 100):
+    """
+    Implemetation of ALS algorithm to approximate the comparison matrix
+
+    sparse - the estimated comparison matrix from ordinal layer
+    n - the relative depth map id
+    limit - the max amount of iterations the algorithm is supposed to run
+
+    returns relative depth map from filled up matrix
+    """
     sparse = sparse.view(256, 64)
     p = torch.rand((2**(2*n), 1)).double()
     q = torch.rand((2**(2*n-2),1)).double()
@@ -108,9 +117,10 @@ def alternating_least_squares(sparse, n, limit = 100):
 
         iteration = iteration + 1
 
+    p = p.view(16,16)
+
+    return p
     
-
-
 def matmul(t1, t2, numpy=False):
     if numpy:
         return np.matmul(t1,t2)
@@ -371,9 +381,3 @@ def get_fine_detail(depth_map):
     pass
 def decompose_depth_map(de):
     pass
-
-if __name__ == "__main__":
-    t1 = torch.randn((16, 1, 64))
-    t2 = torch.randn((1 ,64 ,16))
-    r = torch.matmul(t1,t2.T)
-    print(r.shape)

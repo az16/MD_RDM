@@ -20,7 +20,6 @@ class BaseModel(nn.Module):
 
         self.load_state_dict(parameters)
         """
-
 class DepthEstimationNet(BaseModel):
     def __init__(self, path):
         super(DepthEstimationNet, self).__init__()
@@ -398,37 +397,33 @@ class ALS_Layer():
 if __name__ == "__main__":
     #encoder test lines
     
-    # print("Encoder test\n")
-    # image = torch.randn((16,3,226,226))
-    # model = DepthEstimationNet("")
-    # print("Image\n")
-    # print(image.shape)
-    # #print(model)
-    # pretrained = model(image)
-    # print("Encoder result\n")
-    # print(pretrained.shape)
+    print("Encoder test\n")
+    image = torch.randn((16,3,226,226))
+    model = DepthEstimationNet("")
+    print("Image\n")
+    print(image.shape)
+    print(model)
+    pretrained = model(image)
+    print("Encoder result\n")
+    print(pretrained.shape)
     
     
-    # print("WSMLayer test\n")
-    # #wsm test lines
-    # print("Test image\n")
-    # wsm_test_image = torch.rand((1,1,5,5))
-    # print(wsm_test_image)
-    # compressed_horizontal = wsm_test(wsm_test_image)
-    # print("WSM compressed feature\n")
-    # print(compressed_horizontal)
+    print("WSMLayer test\n")
+    #wsm test lines
+    print("Test image\n")
+    wsm_test_image = torch.rand((1,1,5,5))
+    print(wsm_test_image)
+    compressed_horizontal = wsm_test(wsm_test_image)
+    print("WSM compressed feature\n")
+    print(compressed_horizontal)
     
 
-    #decoder test lines
-    
+    #als test lines
+
     encoder_output = torch.randint(1,10,(1, 1, 8, 8))
     encoder_output2 = torch.randint(1,10,(1, 1, 16, 16))
     quant = Quantization()
-    #decoder_block_1 = Decoder(1056, num_wsm_layers=0, DORN=True, id=0, quant=quant)
-    #x = decoder_block_1(encoder_output)
-    #print(x)
     ord = Ordinal_Layer(4, quant)
-    #print(ord.DornOrdinalRegression(cp.depth2label_sid(encoder_output)))
     comparision = ord.sparse_comparison_id(encoder_output2, encoder_output, 4)
     cp.alternating_least_squares(comparision, n=4, limit=100)
 
