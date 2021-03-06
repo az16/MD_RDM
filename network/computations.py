@@ -117,8 +117,11 @@ def alternating_least_squares(sparse, n, limit = 100):
 
         iteration = iteration + 1
 
-    p = p.view(16,16)
-
+    #normalize with geometric mean
+    p = p/quick_gm(p)
+    #debug: check if geometric mean is actually 1 now
+    #quick_gm(p)
+    p = p.view(1,16,16)
     return p
     
 def matmul(t1, t2, numpy=False):
@@ -206,6 +209,17 @@ def cat_splits(splits):
 
 def geometric_mean(iterable, r, c):
     return np.array([x**(1/(r*c)) for x in iterable]).prod()
+
+def quick_gm(t):
+    """
+    computes geometric mean for als filled matrices
+    """
+    exp = 1/256 #hardcoded as sizes above 16x16 are not computed
+    torch.squeeze(t)
+    geomean = torch.prod(torch.pow(t,exp),0)
+    print("Geometric mean: {0}".format(geomean))
+    return geomean[0]
+
 
 def get_size(id):
     if id == 3:
@@ -393,6 +407,9 @@ def valid_range_maker(input_size, in_type):
 
     return valid_range
 
+def resize(depthmap, newsize):
+    return nn.functional.interpolate(depthmap,size=newsize)
+
 def upsample(depth_map):
     m = nn.Upsample(scale_factor=2, mode='nearest')
     return m(depth_map)
@@ -404,7 +421,8 @@ def decompose_depth_map(de):
     pass
 
 if __name__ == "__main__":
-    t1 = torch.rand((1,1,64,64))
-    t2 = torch.rand((1,1,32,32))
-    t1, t2 = split_matrix(t1, t2)
-    reconstruct(t1)
+    t1 = torch.rand((10,1,64,64))
+    # t2 = torch.rand((1,1,32,32))
+    # t1, t2 = split_matrix(t1, t2)
+    # reconstruct(t1)
+   

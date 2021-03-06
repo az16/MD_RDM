@@ -74,7 +74,6 @@ def _get_denseNet_Components(denseNet):
     encoder.pad_tl = nn.ZeroPad2d((1,0,1,0))
 
     return encoder
-
 class Decoder(nn.Module):
     def __init__(self, in_channels, num_wsm_layers, DORN, id, quant):
         super(Decoder, self).__init__()
@@ -227,7 +226,6 @@ def wsm_test(image):
         )
     
     return wsm_module(image)
-
 class Ordinal_Layer(nn.Module):
     def __init__(self, decoder_id, quantizer):
         super(Ordinal_Layer, self).__init__()
@@ -247,8 +245,9 @@ class Ordinal_Layer(nn.Module):
         print(relative_depth_map.shape)
         return relative_depth_map
 
-    def sparse_comparison_id(self, dn, dn_1, id):
+    def sparse_comparison_id(self, dn, id):
         #size_dn_1, size_dn = cp.get_size(id)
+        dn_1 = cp.resize(dn.float(), self.quant.get_size_id(id-1))
         sparse_m = torch.zeros(dn.shape[2], dn.shape[3], dn_1.shape[2]**2)
       
         for index_row in range(dn.shape[2]):
@@ -316,7 +315,6 @@ class Ordinal_Layer(nn.Module):
         # decode_c = torch.sum(ord_c1, dim=1).view(-1, 1, H, W)
         print(decode_c.shape, ord_c1.shape)
         return decode_c, ord_c1
-
 class Quantization():
     def __init__(self):
         """
@@ -363,7 +361,6 @@ class Quantization():
             return 64
         elif id == 7:
             return 128
-
 class ALS_Layer():
     def __init__(self, d_n, d_n1, id, quant):
         super(ALS_Layer, self).__init__()
@@ -383,39 +380,34 @@ class ALS_Layer():
         if id == 3 or not dn_1:
             return cp.principal_eigen(d_n)
         elif id == 4:
-            return (cp.alternating_least_squares(d_n, iterations=100)).view(N, C, H, W)
+            return (cp.alternating_least_squares(d_n, self.id, limit=100)).view(N, C, H, W)
         elif id > 4:
             #depth maps of size 32x32 and larger are split for runtime optimization
-            splits = cp.split_matrix(d_n, dn_1, [cp.get_size(id)],[16,8])
-            container = []
-            for split in splits:
-                container.append(cp.alternating_least_squares(split, iterations=100))
-            restored_map = (cp.cat_splits(container)).view(N, C, H, W)
-            
-            return restored_map
+            filled_map = cp.alternating_least_squares(d_n, self.id, limit=100)
+            return filled_map
         
 if __name__ == "__main__":
     #encoder test lines
     
-    print("Encoder test\n")
-    image = torch.randn((16,3,226,226))
-    model = DepthEstimationNet("")
-    print("Image\n")
-    print(image.shape)
-    print(model)
-    pretrained = model(image)
-    print("Encoder result\n")
-    print(pretrained.shape)
+    # print("Encoder test\n")
+    # image = torch.randn((16,3,226,226))
+    # model = DepthEstimationNet("")
+    # print("Image\n")
+    # print(image.shape)
+    # print(model)
+    # pretrained = model(image)
+    # print("Encoder result\n")
+    # print(pretrained.shape)
     
     
-    print("WSMLayer test\n")
-    #wsm test lines
-    print("Test image\n")
-    wsm_test_image = torch.rand((1,1,5,5))
-    print(wsm_test_image)
-    compressed_horizontal = wsm_test(wsm_test_image)
-    print("WSM compressed feature\n")
-    print(compressed_horizontal)
+    # print("WSMLayer test\n")
+    # #wsm test lines
+    # print("Test image\n")
+    # wsm_test_image = torch.rand((1,1,5,5))
+    # print(wsm_test_image)
+    # compressed_horizontal = wsm_test(wsm_test_image)
+    # print("WSM compressed feature\n")
+    # print(compressed_horizontal)
     
 
     #als test lines
@@ -424,7 +416,8 @@ if __name__ == "__main__":
     encoder_output2 = torch.randint(1,10,(1, 1, 16, 16))
     quant = Quantization()
     ord = Ordinal_Layer(4, quant)
-    comparision = ord.sparse_comparison_id(encoder_output2, encoder_output, 4)
+    comparision = ord.sparse_comparison_id(encoder_output2, 4)
+    print(comparision.shape)
     cp.alternating_least_squares(comparision, n=4, limit=100)
 
 
