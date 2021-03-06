@@ -421,7 +421,7 @@ def upsample(depth_map):
     m = nn.Upsample(scale_factor=2, mode='nearest')
     return m(depth_map)
 
-def decompose_depth_map(container, dn, n):
+def decompose_depth_map(container, dn, n, relative_map=False):
     """
     container - list that holds all calculated fine detail maps Fn
     depth_map - the current depth map that is decomposed
@@ -432,7 +432,8 @@ def decompose_depth_map(container, dn, n):
              hadamard devision (elementwise division)
     """
     if n == 0:
-        container.append(dn)#append d_0
+        if relative_map:
+            container.append(dn)#append d_0
         print("Decomposed into {0} fine detail maps.".format(len(container)))
         print("NaN values found? --> {0}".format(find_nans(container)))
         return container
