@@ -407,6 +407,13 @@ def valid_range_maker(input_size, in_type):
 
     return valid_range
 
+def find_nans(container):
+    for tensor in container:
+       if torch.any(tensor.isnan()):
+           return True
+    
+    return False
+
 def resize(depthmap, newsize):
     return nn.functional.interpolate(depthmap,size=newsize)
 
@@ -414,14 +421,30 @@ def upsample(depth_map):
     m = nn.Upsample(scale_factor=2, mode='nearest')
     return m(depth_map)
 
-def get_fine_detail(depth_map):
-    pass
-
-def decompose_depth_map(de):
-    pass
+def decompose_depth_map(container, dn, n):
+    """
+    container - list that holds all calculated fine detail maps Fn
+    depth_map - the current depth map that is decomposed
+    n - the id of the fine detail map that is supposed to be
+        caluclated
+    
+    return - list of fine detail maps obtained by using recursive 
+             hadamard devision (elementwise division)
+    """
+    if n == 0:
+        container.append(dn)#append d_0
+        print("Decomposed into {0} fine detail maps.".format(len(container)))
+        print("NaN values found? --> {0}".format(find_nans(container)))
+        return container
+    elif n >= 1:
+        dn_1 = resize(dn, 2**(n-1))
+        fn = dn / upsample(dn_1)
+        container.append(fn)
+        return decompose_depth_map(container, dn_1, n-1)
 
 if __name__ == "__main__":
-    t1 = torch.rand((10,1,64,64))
+    t1 = torch.rand((1,1,128,128))
+    result = decompose_depth_map([],t1,7)
     # t2 = torch.rand((1,1,32,32))
     # t1, t2 = split_matrix(t1, t2)
     # reconstruct(t1)
