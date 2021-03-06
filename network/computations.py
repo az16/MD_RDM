@@ -151,28 +151,48 @@ def from_numpy(tensor):
 def to_numpy(torch_tensor):
     return torch_tensor.cpu().detach().numpy()
 
-def split_matrix(d_n, d_n1, in_size, out_size):
-    ratio = in_size/out_size
-    d_split = []
-    d_1_split = []
-    r_dn = torch.reshape(d_n, (d_n.shape[0], d_n.shape[1], d_n.shape[2]/2*d_n.shape[3]/2))
-    r_dn1 = torch.reshape(d_n1, (d_n1.shape[0], d_n1.shape[1], d_n1.shape[2]/2*d_n1.shape[3]/2))
-
+def split_matrix(d_n, d_n_1):
+    print("<---------Split into pages---------->")
+    print("Input shapes for split: {0}".format((d_n.shape,d_n_1.shape)))
+    ratio = int(d_n.shape[2]/16)
+    first = []
+    second = []
     for i in range(ratio):
-        split1 = torch.empty((d_n.shape[0], d_n.shape[1], out_size[0]))
-        split2 = torch.empty((d_n1.shape[0], d_n1.shape[1], out_size[1]))
+        for j in range(ratio):
+            c_s = 16*j
+            c_e = c_s + 16
+            r_s = 16*i
+            r_e = r_s+16
+            first.append(d_n[:,:,r_s:r_e, c_s:c_e])
+            second.append(d_n_1[:,:, int(r_s/2):int(r_e/2), int(c_s/2):int(c_e/2)])
+    print("Depth map split into {0} pages of shape {1}.".format(len(first),first[0].shape))
+    return first, second
 
-        for j in range(out_size[0]):
-            index = i*out_size[0]+j
-            split1[0][0] = r_dn[0][0][index]
-            if j < 8:
-                split2[0][0] = r_dn1[0][0][index]
+def reconstruct(splits):
+    #split sizes must be the same
+    #first concat along 2 axis
+    #then concat along 3 axis
+    print("<---------Reconstrution pages2fullmap---------->")
+    print("Split shape: {0}".format(splits[0].shape))
+    print("Amount of pages: {0}".format(len(splits)))
+    rows = []
+    ratio = int(np.sqrt(len(splits)))
+    print("==> desired output size: {0} in dim 2,3".format(len(splits)*ratio))
+    container = None
+    for i in range(ratio):
+        container = splits.pop(0)
+        for j in range(ratio-1):
+            container = torch.cat((container, splits.pop(0)), 2)
+        rows.append(container)
+    
+    reconstructed = rows.pop(0)
+    for entry in rows:
+        reconstructed = torch.cat((reconstructed, entry), 3)
+    
+    print("Reconstruced shape: {0}".format(reconstructed.shape))
 
-        d_split.append(split1)
-        d_1_split.append(split2)    
-
-    return (d_split, d_1_split)
-
+    return reconstructed
+            
 def summarize(tensor, axis):
     result = torch.sum(tensor, axis)/tensor.shape[-1]
     return result
@@ -379,5 +399,12 @@ def upsample(depth_map):
 
 def get_fine_detail(depth_map):
     pass
+
 def decompose_depth_map(de):
     pass
+
+if __name__ == "__main__":
+    t1 = torch.rand((1,1,64,64))
+    t2 = torch.rand((1,1,32,32))
+    t1, t2 = split_matrix(t1, t2)
+    reconstruct(t1)
