@@ -23,57 +23,70 @@ class BaseModel(nn.Module):
 class DepthEstimationNet(BaseModel):
     def __init__(self, path):
         super(DepthEstimationNet, self).__init__()
+
+        """
+        DepthEstimationNet resolutions
+        Input: 226x226 3 channels
+        Encoder output: 8x8 1056 channels
+        Decoder outputs by id:
+            * id 1, 6 => 8x8 1 channel
+            * id 2, 7 => 16x16 1 channel
+            * id 3, 8 => 32x32 1 channel
+            * id 4, 9 => 64x64 1 channel
+            * id 5, 10 => 128x128 1 channel
+        """
+
+        #Quantizers for Lloyd quantization
         self.quantizers = Quantization()
+        #Encoder part
         self.encoder = _make_encoder_()
-    
+        #Decoders 1-10
+        #First 5 estimate regular depth maps using DORN loss and SID algorithm
+        self.d_1 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=1, quant=self.quantizers)
+        self.d_2 = Decoder(in_channels=1056, num_wsm_layers=1, DORN=True, id=2, quant=self.quantizers)
+        self.d_3 = Decoder(in_channels=1056, num_wsm_layers=2, DORN=True, id=3, quant=self.quantizers)
+        self.d_4 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=True, id=4, quant=self.quantizers)
+        self.d_5 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=True, id=5, quant=self.quantizers)
+        
+        #Remaining 5 estimate relative depth maps using 
+        self.d_6 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=6, quant=self.quantizers)
+        self.d_7 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=7, quant=self.quantizers)
+        self.d_8 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=8, quant=self.quantizers)
+        self.d_9 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=9, quant=self.quantizers)
+        self.d_10 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=10, quant=self.quantizers)
 
 
     def forward(self, x):
         #encoder propagation
-        print("\nEncoder shapes after each layer: \n")
         x = self.encoder.conv_e1(x)
-        print(x.shape)
         x = self.encoder.max_e1(x)
-        print(x.shape)
         x = self.encoder.dense_e2(x)
-        print(x.shape)
         x = self.encoder.trans_e2(x)
         x = self.encoder.pad_tl(x)
-        print(x.shape)
         x = self.encoder.dense_e3(x)
-        print(x.shape)
         x = self.encoder.trans_e3(x)
         x = self.encoder.pad_tl(x)
-        print(x.shape)
         x = self.encoder.dense_e4(x)
-        print(x.shape)
         x = self.encoder.trans_e4(x)
         x = self.encoder.pad_tl(x)
-        print(x.shape)
-        print("\n")
 
-        return x
+        #according to the authors paper the best performance is reached with decoders
+        #1,6,7,8,9
+
+        x_d1 = self.d_1(x)#regular
+        x_d6 = self.d_6(x)#relative
+        x_d7 = self.d_7(x)#relative
+        x_d8 = self.d_8(x)#relative
+        x_d9 = self.d_9(x)#relative
         
-def _make_encoder_():
-    denseNet = torchvision.models.densenet
-    encoder = _get_denseNet_Components(denseNet)
-
-    return encoder
-
-def _get_denseNet_Components(denseNet):
-
-    encoder = nn.Module()
-    encoder.conv_e1 = nn.Conv2d(in_channels=3, kernel_size=7, stride=2, out_channels=96, padding=3)
-    encoder.max_e1 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-    encoder.dense_e2 = denseNet._DenseBlock(6, 96, 57, 48, 0.0, True)
-    encoder.trans_e2 = denseNet._Transition(num_input_features=384, num_output_features=192)
-    encoder.dense_e3 = denseNet._DenseBlock(12, 192, 29, 48, 0.0, True)
-    encoder.trans_e3 = denseNet._Transition(num_input_features=768, num_output_features=384)
-    encoder.dense_e4 = denseNet._DenseBlock(36, 384, 15, 48, 0.0, True)
-    encoder.trans_e4 = denseNet._Transition(num_input_features=2112, num_output_features=1056)
-    encoder.pad_tl = nn.ZeroPad2d((1,0,1,0))
-
-    return encoder
+        #get fine-detail maps for each depth map
+        f_d1 = cp.decompose_depth_map([], x_d1, 3)
+        f_d6 = cp.decompose_depth_map([], x_d6, 3, relative_map=True)
+        f_d7 = cp.decompose_depth_map([], x_d7, 4, relative_map=True)
+        f_d8 = cp.decompose_depth_map([], x_d8, 5, relative_map=True)
+        f_d9 = cp.decompose_depth_map([], x_d8, 6, relative_map=True)
+        
+        return x 
 class Decoder(nn.Module):
     def __init__(self, in_channels, num_wsm_layers, DORN, id, quant):
         super(Decoder, self).__init__()
@@ -93,25 +106,6 @@ class Decoder(nn.Module):
         x = self.ord_layer(x)
 
         return x
-
-def _make_wsm_layers_(num_of_layers):
-    
-    wsm_d1 = WSMLayer(1664, 16, 16, 1)
-    wsm_d2 = WSMLayer(832, 32, 32, 2)
-    wsm_d3 = WSMLayer(416, 64, 64, 3)
-    wsm_d4 = WSMLayer(208, 128, 128, 4)
-
-    wsm_block = nn.Sequential()
-    if num_of_layers > 0:
-        wsm_block.add_module("WSM_1",wsm_d1)
-    if num_of_layers > 1:
-        wsm_block.add_module("WSM_2",wsm_d2)
-    if num_of_layers > 2: 
-        wsm_block.add_module("WSM_3",wsm_d3)
-    if num_of_layers > 3:
-        wsm_block.add_module("WSM_4",wsm_d4)
-
-    return wsm_block
 class WSMLayer(nn.Module):
     def __init__(self, in_channels, kernel_size, stride, layer_id):
         super(WSMLayer, self).__init__()
@@ -193,39 +187,6 @@ class WSMLayer(nn.Module):
         print(cat.shape)
 
         return cat
-        
-def _make_wsm_vertical_(in_channels, out_channels, kernel_size, stride):
-    """Stride has to be chosen in a way that only one convolution is performed
-       The output is a compressed feature column.
-    """
-    wsm_module = nn.Sequential(
-        nn.ZeroPad2d((0,0,1,1)),
-        nn.Conv2d(in_channels, out_channels, kernel_size, stride)
-        )
-
-    return wsm_module
-
-def _make_wsm_horizontal_(in_channels, out_channels, kernel_size, stride):
-    """Stride has to be chosen in a way that only one convolution is performed
-       Padding different for horizontal and vertical. Output is a compressed feature
-    """
-    wsm_module = nn.Sequential(
-        nn.ZeroPad2d((1,1,0,0)),
-        nn.Conv2d(in_channels, out_channels, kernel_size, stride)
-        )
-
-    return wsm_module
-
-def wsm_test(image):
-    """Stride has to be chosen in a way that only one convolution is performed
-        Padding different for horizontal and vertical. Output is a compressed feature
-    """
-    wsm_module = nn.Sequential(
-        nn.ZeroPad2d((1,1,0,0)),
-        nn.Conv2d(1, 1, (5,3), (5,1))
-        )
-    
-    return wsm_module(image)
 class Ordinal_Layer(nn.Module):
     def __init__(self, decoder_id, quantizer):
         super(Ordinal_Layer, self).__init__()
@@ -385,7 +346,69 @@ class ALS_Layer():
             #depth maps of size 32x32 and larger are split for runtime optimization
             filled_map = cp.alternating_least_squares(d_n, self.id, limit=100)
             return filled_map
-        
+
+def _make_wsm_vertical_(in_channels, out_channels, kernel_size, stride):
+    """Stride has to be chosen in a way that only one convolution is performed
+       The output is a compressed feature column.
+    """
+    wsm_module = nn.Sequential(
+        nn.ZeroPad2d((0,0,1,1)),
+        nn.Conv2d(in_channels, out_channels, kernel_size, stride)
+        )
+
+    return wsm_module
+
+def _make_wsm_horizontal_(in_channels, out_channels, kernel_size, stride):
+    """Stride has to be chosen in a way that only one convolution is performed
+       Padding different for horizontal and vertical. Output is a compressed feature
+    """
+    wsm_module = nn.Sequential(
+        nn.ZeroPad2d((1,1,0,0)),
+        nn.Conv2d(in_channels, out_channels, kernel_size, stride)
+        )
+
+    return wsm_module
+
+def _make_encoder_():
+    denseNet = torchvision.models.densenet
+    encoder = _get_denseNet_Components(denseNet)
+
+    return encoder
+
+def _get_denseNet_Components(denseNet):
+
+    encoder = nn.Module()
+    encoder.conv_e1 = nn.Conv2d(in_channels=3, kernel_size=7, stride=2, out_channels=96, padding=3)
+    encoder.max_e1 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+    encoder.dense_e2 = denseNet._DenseBlock(6, 96, 57, 48, 0.0, True)
+    encoder.trans_e2 = denseNet._Transition(num_input_features=384, num_output_features=192)
+    encoder.dense_e3 = denseNet._DenseBlock(12, 192, 29, 48, 0.0, True)
+    encoder.trans_e3 = denseNet._Transition(num_input_features=768, num_output_features=384)
+    encoder.dense_e4 = denseNet._DenseBlock(36, 384, 15, 48, 0.0, True)
+    encoder.trans_e4 = denseNet._Transition(num_input_features=2112, num_output_features=1056)
+    encoder.pad_tl = nn.ZeroPad2d((1,0,1,0))
+
+    return encoder
+
+def _make_wsm_layers_(num_of_layers):
+    
+    wsm_d1 = WSMLayer(1664, 16, 16, 1)
+    wsm_d2 = WSMLayer(832, 32, 32, 2)
+    wsm_d3 = WSMLayer(416, 64, 64, 3)
+    wsm_d4 = WSMLayer(208, 128, 128, 4)
+
+    wsm_block = nn.Sequential()
+    if num_of_layers > 0:
+        wsm_block.add_module("WSM_1",wsm_d1)
+    if num_of_layers > 1:
+        wsm_block.add_module("WSM_2",wsm_d2)
+    if num_of_layers > 2: 
+        wsm_block.add_module("WSM_3",wsm_d3)
+    if num_of_layers > 3:
+        wsm_block.add_module("WSM_4",wsm_d4)
+
+    return wsm_block
+
 if __name__ == "__main__":
     #encoder test lines
     

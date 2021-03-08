@@ -421,6 +421,12 @@ def upsample(depth_map):
     m = nn.Upsample(scale_factor=2, mode='nearest')
     return m(depth_map)
 
+def multi_upsample(depth_map, n):
+    if n == 0:
+        return depth_map
+    elif n > 0:
+        return multi_upsample(upsample(depth_map), n-1)
+
 def decompose_depth_map(container, dn, n, relative_map=False):
     """
     container - list that holds all calculated fine detail maps Fn
@@ -442,6 +448,25 @@ def decompose_depth_map(container, dn, n, relative_map=False):
         fn = dn / upsample(dn_1)
         container.append(fn)
         return decompose_depth_map(container, dn_1, n-1)
+
+def recombination(list_of_components, n=7):
+    """
+    list_of_components - list of optimal recombination candidates for 
+                         one input image (sorted after id in ascending order)
+    n - the id of the depth map that is supposed to be recombined
+    returns - Reconstructed depthmap in log scale according to formula (6) from paper
+    """
+    d_0 = torch.log(multi_upsample(list_of_components.pop(0), n))
+
+    result =  torch.log(multi_upsample(list_of_components.pop(0), n-1))
+    for i in range(n-1):
+        result = result+torch.log(multi_upsample(list_of_components[i], n-(i+2)))
+    
+    optimal_map = d_0 + result 
+    return optimal_map
+
+
+
 
 if __name__ == "__main__":
     t1 = torch.rand((1,1,128,128))
