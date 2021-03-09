@@ -21,7 +21,7 @@ class BaseModel(nn.Module):
         self.load_state_dict(parameters)
         """
 class DepthEstimationNet(BaseModel):
-    def __init__(self, path):
+    def __init__(self):
         super(DepthEstimationNet, self).__init__()
 
         """
@@ -80,13 +80,13 @@ class DepthEstimationNet(BaseModel):
         x_d9 = self.d_9(x)#relative
         
         #get fine-detail maps for each depth map
-        f_d1 = cp.decompose_depth_map([], x_d1, 3)
-        f_d6 = cp.decompose_depth_map([], x_d6, 3, relative_map=True)
-        f_d7 = cp.decompose_depth_map([], x_d7, 4, relative_map=True)
-        f_d8 = cp.decompose_depth_map([], x_d8, 5, relative_map=True)
-        f_d9 = cp.decompose_depth_map([], x_d8, 6, relative_map=True)
+        # f_d1 = cp.decompose_depth_map([], x_d1, 3)
+        # f_d6 = cp.decompose_depth_map([], x_d6, 3, relative_map=True)
+        # f_d7 = cp.decompose_depth_map([], x_d7, 4, relative_map=True)
+        # f_d8 = cp.decompose_depth_map([], x_d8, 5, relative_map=True)
+        # f_d9 = cp.decompose_depth_map([], x_d8, 6, relative_map=True)
         
-        return x 
+        return x_d1, x_d6, x_d7, x_d8, x_d9 
 class Decoder(nn.Module):
     def __init__(self, in_channels, num_wsm_layers, DORN, id, quant):
         super(Decoder, self).__init__()
@@ -96,6 +96,7 @@ class Decoder(nn.Module):
 
         self.dense_layer = torchvision.models.densenet._DenseBlock(24, 1056, 8, 48, 0.0, True)
         self.wsm_block = _make_wsm_layers_(num_wsm_layers)
+        self.ord_layer = Ordinal_Layer(id, DORN, quant)
 
     def forward(self, x):
 
@@ -188,11 +189,12 @@ class WSMLayer(nn.Module):
 
         return cat
 class Ordinal_Layer(nn.Module):
-    def __init__(self, decoder_id, quantizer):
+    def __init__(self, decoder_id, DORN, quantizer):
         super(Ordinal_Layer, self).__init__()
         self.quant = quantizer
-        self.id = decoder_id
-    
+        self.id = decoder_id-3
+        self.dorn = DORN
+
     def sparse_comparison_v1(self, d_3):
         reshaped_d_3 = torch.reshape(d_3, (1, 1, d_3.shape[2]*d_3.shape[3]))
         sparse_m = torch.zeros(d_3.shape[2], d_3.shape[3], d_3.shape[2]*d_3.shape[3])
@@ -203,12 +205,12 @@ class Ordinal_Layer(nn.Module):
 
         depth_labels = torch.zeros(d_3.shape[2], d_3.shape[3], d_3.shape[2]*d_3.shape[3], 40)
         relative_depth_map = self.LloydQuantization(depth_labels, sparse_m)
-        print(relative_depth_map.shape)
+        #print(relative_depth_map.shape)
         return relative_depth_map
 
-    def sparse_comparison_id(self, dn, id):
+    def sparse_comparison_id(self, dn, dn_1):
         #size_dn_1, size_dn = cp.get_size(id)
-        dn_1 = cp.resize(dn.float(), self.quant.get_size_id(id-1))
+        #dn_1 = cp.resize(dn.float(), self.quant.get_size_id(id-1))
         sparse_m = torch.zeros(dn.shape[2], dn.shape[3], dn_1.shape[2]**2)
       
         for index_row in range(dn.shape[2]):
@@ -276,6 +278,37 @@ class Ordinal_Layer(nn.Module):
         # decode_c = torch.sum(ord_c1, dim=1).view(-1, 1, H, W)
         print(decode_c.shape, ord_c1.shape)
         return decode_c, ord_c1
+
+    def forward(self, x):
+        if self.dorn:
+            x = self.DornOrdinalRegression(x)
+            return x 
+        else:
+            if self.id == 3:
+                #use regular comparison matrix
+                x = self.sparse_comparison_v1(x)
+                x = cp.principal_eigen(x)
+                return x 
+
+            elif self.id == 4:
+                #use comparison scheme described in paper
+                dn = x 
+                dn_1 = cp.resize(dn, self.quant.get_size_id(id-1))
+                x = self.sparse_comparison_id(dn, dn_1)
+                filled_map = cp.alternating_least_squares(sparse=x, n=4, limit=100)
+                return filled_map
+
+            elif self.id > 4:
+                #for effiecency depth maps are split into 16x16 and 8x8
+                dn = x 
+                dn_1 = cp.resize(dn, self.quant.get_size_id(id-1))
+                dn_pages, dn_1_pages = cp.split_matrix(dn, dn_1) #two lists of split pages (same length) from dn and dn_1
+                zipped = zip(dn_pages,dn_1_pages)
+                sparse_pages = [self.sparse_comparison_id(z[0], z[1]) for z in zipped]
+                als_filled_pages = [cp.alternating_least_squares(sparse, n=4, limit=100) for sparse in sparse_pages]
+                full_map = cp.reconstruct(als_filled_pages)
+
+                return full_map            
 class Quantization():
     def __init__(self):
         """
@@ -322,30 +355,6 @@ class Quantization():
             return 64
         elif id == 7:
             return 128
-class ALS_Layer():
-    def __init__(self, d_n, d_n1, id, quant):
-        super(ALS_Layer, self).__init__()
-        """
-        Layer for computing relative depthmaps and filling unestimated
-        cells using an approximation via ALS
-        Quantization step shortened for decoders that employ this layer
-        as quantization levels are already provided as .mat files within 
-        this project
-        """
-        self.id = id
-
-
-    def do_als(self, d_n, dn_1=None):
-        N, C, H, W = d_n.size()
-
-        if id == 3 or not dn_1:
-            return cp.principal_eigen(d_n)
-        elif id == 4:
-            return (cp.alternating_least_squares(d_n, self.id, limit=100)).view(N, C, H, W)
-        elif id > 4:
-            #depth maps of size 32x32 and larger are split for runtime optimization
-            filled_map = cp.alternating_least_squares(d_n, self.id, limit=100)
-            return filled_map
 
 def _make_wsm_vertical_(in_channels, out_channels, kernel_size, stride):
     """Stride has to be chosen in a way that only one convolution is performed
@@ -435,13 +444,17 @@ if __name__ == "__main__":
 
     #als test lines
 
-    encoder_output = torch.randint(1,10,(1, 1, 8, 8))
-    encoder_output2 = torch.randint(1,10,(1, 1, 16, 16))
-    quant = Quantization()
-    ord = Ordinal_Layer(4, quant)
-    comparision = ord.sparse_comparison_id(encoder_output2, 4)
-    print(comparision.shape)
-    cp.alternating_least_squares(comparision, n=4, limit=100)
+    # encoder_output = torch.randint(1,10,(1, 1, 8, 8))
+    # encoder_output2 = torch.randint(1,10,(1, 1, 16, 16))
+    # quant = Quantization()
+    # ord = Ordinal_Layer(4, quant)
+    # comparision = ord.sparse_comparison_id(encoder_output2, 4)
+    # print(comparision.shape)
+    # cp.alternating_least_squares(comparision, n=4, limit=100)
+
+    input_batch = torch.randn((16,3,226,226))
+    network = DepthEstimationNet()
+    print(network(input_batch).shape)
 
 
     
