@@ -43,17 +43,17 @@ class DepthEstimationNet(BaseModel):
         #Decoders 1-10
         #First 5 estimate regular depth maps using DORN loss and SID algorithm
         self.d_1 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=1, quant=self.quantizers)
-        self.d_2 = Decoder(in_channels=1056, num_wsm_layers=1, DORN=True, id=2, quant=self.quantizers)
-        self.d_3 = Decoder(in_channels=1056, num_wsm_layers=2, DORN=True, id=3, quant=self.quantizers)
-        self.d_4 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=True, id=4, quant=self.quantizers)
-        self.d_5 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=True, id=5, quant=self.quantizers)
+        self.d_2 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=2, quant=self.quantizers)
+        self.d_3 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=3, quant=self.quantizers)
+        self.d_4 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=4, quant=self.quantizers)
+        self.d_5 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=5, quant=self.quantizers)
         
         #Remaining 5 estimate relative depth maps using 
         self.d_6 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=6, quant=self.quantizers)
-        self.d_7 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=7, quant=self.quantizers)
-        self.d_8 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=8, quant=self.quantizers)
-        self.d_9 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=9, quant=self.quantizers)
-        self.d_10 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=10, quant=self.quantizers)
+        self.d_7 = Decoder(in_channels=1056, num_wsm_layers=1, DORN=False, id=7, quant=self.quantizers)
+        self.d_8 = Decoder(in_channels=1056, num_wsm_layers=2, DORN=False, id=8, quant=self.quantizers)
+        self.d_9 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=False, id=9, quant=self.quantizers)
+        self.d_10 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=False, id=10, quant=self.quantizers)
 
 
     def forward(self, x):
@@ -93,9 +93,10 @@ class Decoder(nn.Module):
 
         """Code to assemble decoder block"""
         assert num_wsm_layers < 5 and num_wsm_layers >= 0
-
+        self.id = id
         self.dense_layer = torchvision.models.densenet._DenseBlock(24, 1056, 8, 48, 0.0, True)
         self.wsm_block = _make_wsm_layers_(num_wsm_layers)
+        self.conv1 = nn.Conv2d(in_channels=_wsm_output_planes(id), out_channels=1, kernel_size=1)
         self.ord_layer = Ordinal_Layer(id, DORN, quant)
 
     def forward(self, x):
@@ -104,6 +105,9 @@ class Decoder(nn.Module):
         #print(x.shape)
         x = self.wsm_block(x)
         #print(x.shape)
+        if self.id > 5:
+            x = self.conv1(x)#make feature map have only one channel
+
         x = self.ord_layer(x)
 
         return x
@@ -196,35 +200,39 @@ class Ordinal_Layer(nn.Module):
         self.dorn = DORN
 
     def sparse_comparison_v1(self, d_3):
-        reshaped_d_3 = torch.reshape(d_3, (1, 1, d_3.shape[2]*d_3.shape[3]))
-        sparse_m = torch.zeros(d_3.shape[2], d_3.shape[3], d_3.shape[2]*d_3.shape[3])
+        B,C,H,W = d_3.size()
+        size = H*W
+        reshaped_d_3 = d_3.view(B, C, size)
+        inverse_reshaped = 1/reshaped_d_3
+        sparse_m = torch.zeros(B, size, size)
 
-        for i in range(d_3.shape[2]):
-            for j in range(d_3.shape[3]):
-                sparse_m[i][j][:] = reshaped_d_3/d_3[0][0][i][j]
+        for i in range(B):
+            sparse_m[i] = torch.matmul(reshaped_d_3[i].T, inverse_reshaped[i])
 
-        depth_labels = torch.zeros(d_3.shape[2], d_3.shape[3], d_3.shape[2]*d_3.shape[3], 40)
+        depth_labels = torch.zeros(B, size, size, 40)
         relative_depth_map = self.LloydQuantization(depth_labels, sparse_m)
         #print(relative_depth_map.shape)
         return relative_depth_map
 
     def sparse_comparison_id(self, dn, dn_1):
-        #size_dn_1, size_dn = cp.get_size(id)
-        #dn_1 = cp.resize(dn.float(), self.quant.get_size_id(id-1))
-        sparse_m = torch.zeros(dn.shape[2], dn.shape[3], dn_1.shape[2]**2)
-      
-        for index_row in range(dn.shape[2]):
-                for index_col in range(dn.shape[3]):
-                    index_resized_row = np.floor(index_row/2)
-                    index_resized_col = np.floor(index_col/2)
-                    index_row_start = int(min(max(index_resized_row, 0), dn_1.shape[2]-3))
-                    index_row_end = index_row_start+2
-                    index_col_start = int(min(max(index_resized_col, 0), dn_1.shape[3]-3))
-                    index_col_end = index_col_start+3
-                    comparison_area = cp.get_resized_area(index_row_start, index_row_end, index_col_start, index_col_end, dn_1)
-                    sparse_m[index_row][index_col][:] = comparison_area[0][0] / dn[0][0][index_row][index_col]
+        B,C,H,W = dn.size()
+        H_1,W_1 = int(H/2),int(W/2)
+        dn = torch.squeeze(dn)
+        sparse_m = torch.zeros(B,H,W,H_1*W_1)
+        for b in range(B):
+            for index_row in range(H):
+                    for index_col in range(W):
+                        index_resized_row = np.floor(index_row/2)
+                        index_resized_col = np.floor(index_col/2)
+                        index_row_start = int(min(max(index_resized_row, 0), dn_1.shape[2]-3))
+                        index_row_end = index_row_start+2
+                        index_col_start = int(min(max(index_resized_col, 0), dn_1.shape[3]-3))
+                        index_col_end = index_col_start+3
+                        comparison_area = cp.get_resized_area(index_row_start, index_row_end, index_col_start, index_col_end, dn_1)
+                        sparse_m[b][index_row][index_col][:] = comparison_area[0][0]/dn[b][index_row][index_col]
 
-        depth_labels = torch.zeros(dn.shape[2], dn.shape[3], dn_1.shape[2]*dn_1.shape[3], 40)
+        sparse_m = sparse_m.view(B,H*W,H_1*W_1)
+        depth_labels = torch.zeros(B,H*W,H_1*W_1, 40)
         relative_depth_map = self.LloydQuantization(depth_labels, sparse_m, id=self.id)
         #print(relative_depth_map.shape)
         return relative_depth_map
@@ -253,7 +261,7 @@ class Ordinal_Layer(nn.Module):
                  decode_label is the ordinal labels for each position of Image I
         """
         N, C, H, W = x.size()
-        print("regression tensor size"+str(x.size()))
+        print("regression input tensor size: "+str(x.size()))
         ord_num = C // 2
         """
         replace iter with matrix operation
@@ -299,7 +307,7 @@ class Ordinal_Layer(nn.Module):
                 return filled_map
 
             elif self.id > 4:
-                #for effiecency depth maps are split into 16x16 and 8x8
+                #for efficiency depth maps are split into 16x16 and 8x8
                 dn = x 
                 dn_1 = cp.resize(dn, self.quant.get_size_id(id-1))
                 dn_pages, dn_1_pages = cp.split_matrix(dn, dn_1) #two lists of split pages (same length) from dn and dn_1
@@ -418,6 +426,20 @@ def _make_wsm_layers_(num_of_layers):
 
     return wsm_block
 
+def _wsm_output_planes(decoder_id):
+    if decoder_id==6:
+        return 2208
+    elif decoder_id==7:
+        return 1664
+    elif decoder_id==8:
+        return 832
+    elif decoder_id==9:
+        return 416
+    elif decoder_id==10:
+        return 208
+    else:
+        return 1
+
 if __name__ == "__main__":
     #encoder test lines
     
@@ -446,15 +468,20 @@ if __name__ == "__main__":
 
     # encoder_output = torch.randint(1,10,(1, 1, 8, 8))
     # encoder_output2 = torch.randint(1,10,(1, 1, 16, 16))
-    # quant = Quantization()
-    # ord = Ordinal_Layer(4, quant)
+    quant = Quantization()
+    ord = Ordinal_Layer(6, False, quant)
     # comparision = ord.sparse_comparison_id(encoder_output2, 4)
     # print(comparision.shape)
     # cp.alternating_least_squares(comparision, n=4, limit=100)
 
-    input_batch = torch.randn((16,3,226,226))
-    network = DepthEstimationNet()
-    print(network(input_batch).shape)
+    input_batch = torch.randn((1,3,226,226))
+    method_input = torch.randn((16,1,16,16))
+    dn_1 = cp.resize(method_input,8)
+    #network = DepthEstimationNet()
+    #print(network(input_batch).shape)
+    result = ord.sparse_comparison_v1(dn_1)
+    #print(result.shape)
+    #print(result)
 
 
     
