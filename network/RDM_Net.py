@@ -475,11 +475,13 @@ if __name__ == "__main__":
     # cp.alternating_least_squares(comparision, n=4, limit=100)
 
     input_batch = torch.randn((1,3,226,226))
-    method_input = torch.randn((16,1,16,16))
+    method_input = torch.randint(1,10,(16,1,16,16))
     dn_1 = cp.resize(method_input,8)
     #network = DepthEstimationNet()
     #print(network(input_batch).shape)
     result = ord.sparse_comparison_v1(dn_1)
+    print(cp.principal_eigen(result))
+    #result = cp.principal_eigen(result)
     #print(result.shape)
     #print(result)
 

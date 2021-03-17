@@ -20,21 +20,10 @@ def principal_eigen(p_3):
     returns p_3 with approximated values
 
     """
-
-    # for i in range(B):
-    #     np_p_3 = s.lil_matrix(p_3[i].cpu().detach().numpy())
-
-    #     eig_val, eig_vec = sp.eigs(np_p_3, k=1, which='LM')
-    #     eig_vec = np.real(eig_vec)
-    #     eig_vec = eig_vec/geometric_mean(eig_vec, len(eig_vec), 1)
-
-    #     # reciproc = np.reciprocal(eig_vec)
-    #     # result = np.dot(reciproc,eig_vec.T)
-    #     result = (torch.from_numpy(eig_vec)).view(1, 8, 8)
-    #     filled_map[i] = result
-    #print(result)
-    result = torch.lobpcg(p_3, k=1, largest=True)[1].view(16,1,8,8).cpu().detach().numpy()
+    result = torch.lobpcg(p_3, k=1, largest=True)[1].cpu().detach().numpy()
+    result = np.abs(result)
     for i in range(result.shape[0]):
+        #print(result[i])
         result[i] = result[i]/geometric_mean(result[i], len(result[i]), 1)
     return from_numpy(result).view(16,1,8,8)
 
@@ -419,10 +408,12 @@ def find_nans(container):
     
     return False
 
-def resize(depthmap, newsize):
-    return nn.functional.interpolate(depthmap,size=newsize)
+def resize(depth_map, newsize):
+    depth_map = depth_map.double()
+    return nn.functional.interpolate(depth_map,size=newsize)
 
 def upsample(depth_map):
+    depth_map = depth_map.double()
     m = nn.Upsample(scale_factor=2, mode='nearest')
     return m(depth_map)
 
