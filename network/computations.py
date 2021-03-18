@@ -7,8 +7,6 @@ from statistics import geometric_mean as gm
 from itertools import zip_longest
 import matplotlib.pyplot as plt
 
-
-
 def principal_eigen(p_3):
     """
     Approximates [d1..d64]^T if P3 has errors
@@ -25,99 +23,67 @@ def principal_eigen(p_3):
     for i in range(result.shape[0]):
         #print(result[i])
         result[i] = result[i]/geometric_mean(result[i], len(result[i]), 1)
-    return from_numpy(result).view(16,1,8,8)
+    return from_numpy(result).view(result.shape[0],1,8,8)
 
-def als_old_version(P, iterations=0):
-    """
-    Implemetation of ALS algorithm to approximate the comparison matrix
-    P_n,n-1
-
-    P - the estimated comparison matrix (sparse)
-    returns relative depth map from filled up matrix
-    """
-    
-    num_iter = iterations
-    rmse_record = np.array([list(a) for a in zip(np.array([x for x in frange(0, num_iter+1, 0.5)]),np.zeros(2*num_iter+1))])
-    # Initialization  
-    component_row = torch.ones(P.shape[0], 1, P.shape[2]).double()
-    component_col = torch.ones(P.shape[1], 1, P.shape[2]).double()
-    valid = mask16x16()
-
-    intermediate_mat = torch.zeros(P.shape)
-    for index_page in range(P.shape[2]):
-        intermediate_mat[:,:,index_page] = torch.matmul(component_row[:,:,index_page],component_col[:, :, index_page].T)
-
-    rmse_record[0][1] = torch.mean((torch.square(intermediate_mat[:] - P[:] * valid)))**0.5
-    #print(rmse_record)
-    # Repetitive ALS
-    index_iter = 0
-    while index_iter < num_iter:
-        index_iter = index_iter + 1
-        
-        #component_row = torch.unsqueeze(sum(component_col * P.permute([1,0,2]) * valid.permute([1,0,2]), 0), 1) / torch.unsqueeze(sum(component_col * component_col * valid.permute([1,0,2]), 0), 1)
-        component_row = als_step(component_row.T, component_col)
-       
-        for index_page in range(P.shape[2]):
-            intermediate_mat[:,:,index_page] = matmul(component_row[:,:,index_page], component_col[:,:,index_page].T)
-        #print("intermediate = {0}".format(intermediate_mat))
-        rmse_record[2*index_iter-1][1] = rmse(intermediate_mat, P)#torch.mean(torch.square((intermediate_mat - P * valid)))**0.5
-
-        #component_col = torch.unsqueeze(sum(component_row * P * valid, 0), 1)/ torch.unsqueeze(sum(component_row * component_row * valid, 0),1)     
-        component_col = als_step(component_col, component_row)
-     
-        for index_page in range(P.shape[2]):
-                    intermediate_mat[:,:,index_page] = matmul(component_row[:,:,index_page],component_col[:,:,index_page].T)
-        
-        rmse_record[2*index_iter][1] = rmse(intermediate_mat, P)#torch.mean((torch.square(intermediate_mat[:] - P[:]*valid)))**0.5
-
-        print("iteration: {:.0f}, rmse_list_len: {:.0f}".format(index_iter, 2*index_iter))
-    print("max_rmse_score: {:.5f}, min_rmse_score: {:.5f}".format(max(rmse_record[:,1]), min(rmse_record[:,1])))
-    output_mat = intermediate_mat
-    p = component_row.permute([0,2,1])
-    q = component_col.permute([0,2,1])
-    print("Filled mat shape: {0}, p vector shape: {1}, q vector shape: {2}".format(output_mat.shape, p.shape, q.shape))
-    return p.T
-
-def alternating_least_squares(sparse, n, limit = 100):
+def alternating_least_squares(sparse_m, n, limit = 100, debug=False):
     """
     Implemetation of ALS algorithm to approximate the comparison matrix
 
-    sparse - the estimated comparison matrix from ordinal layer
+    sparse - batch of comparison matrices from ordinal layer
     n - the relative depth map id
     limit - the max amount of iterations the algorithm is supposed to run
 
     returns relative depth map from filled up matrix
     """
-    sparse = sparse.view(256, 64)
-    p = torch.rand((2**(2*n), 1)).double()
-    q = torch.rand((2**(2*n-2),1)).double()
-    
-    rmse_record = []
-
-    rmse_record.append(rmse(matmul(p,q.T), sparse))
-
-    #training loop
-    iteration = 0 
-    while(iteration < limit):
+    B, H, W = sparse_m.size()
+    out_size = 2**n
+    filled = torch.zeros(B,1,out_size,out_size)
+    #go through batch and do als for each comparison matrix
+    for b in range(B):
+        sparse = sparse_m[b]
+        p = torch.rand((2**(2*n), 1)).double()
+        q = torch.rand((2**(2*n-2),1)).double()
         
-        p = als_step(sparse, q)
+        rmse_record = []
+
         rmse_record.append(rmse(matmul(p,q.T), sparse))
 
-        q = als_step(sparse.T, p)
-        rmse_record.append(rmse(matmul(p,q.T), sparse))
+        #training loop
+        iteration = 0 
+        while(min_eps(rmse_record) and iteration < limit):
+            
+            p = als_step(sparse, q)
+            rmse_record.append(rmse(matmul(p,q.T), sparse))
 
-        print("iteration: {:.0f}".format(iteration+1))
-        print("rmse_losses: p = {0}, q = {1}".format(rmse_record[iteration], rmse_record[iteration+1]))
+            q = als_step(sparse.T, p)
+            rmse_record.append(rmse(matmul(p,q.T), sparse))
 
-        iteration = iteration + 1
+            if debug:
+                print("iteration: {:.0f}".format(iteration+1))
+                print("rmse_losses: p = {0}, q = {1}".format(rmse_record[iteration], rmse_record[iteration+1]))
 
-    #normalize with geometric mean
-    p = p/quick_gm(p)
-    #debug: check if geometric mean is actually 1 now
-    #quick_gm(p)
-    p = p.view(1,16,16)
-    return p
-    
+            iteration = iteration + 1
+
+        #normalize with geometric mean
+        p = p/quick_gm(p)
+        if debug: 
+            print(quick_gm(p))
+
+        filled[b] = p.view(1,out_size,out_size)
+    return filled
+
+def min_eps(loss, eps=0.000001):
+    """
+    loss - list that contains all rmse losses from als method
+    returns - False if delta between last two losses has become smaller than eps
+              True if delta is still larger than eps
+    """
+    if len(loss)<2:
+        return True
+    else:
+        #print("eps: {0}".format(np.abs(loss[-1]-loss[-2])))
+        return np.abs(loss[-1]-loss[-2])>eps
+
 def matmul(t1, t2, numpy=False):
     if numpy:
         return np.matmul(t1,t2)
@@ -149,8 +115,8 @@ def to_numpy(torch_tensor):
     return torch_tensor.cpu().detach().numpy()
 
 def split_matrix(d_n, d_n_1):
-    print("<---------Split into pages---------->")
-    print("Input shapes for split: {0}".format((d_n.shape,d_n_1.shape)))
+    print("<---------Split map2pages---------->\n")
+    print("Input shape for split: {0}".format((d_n.shape)))
     ratio = int(d_n.shape[2]/16)
     first = []
     second = []
@@ -162,19 +128,18 @@ def split_matrix(d_n, d_n_1):
             r_e = r_s+16
             first.append(d_n[:,:,r_s:r_e, c_s:c_e])
             second.append(d_n_1[:,:, int(r_s/2):int(r_e/2), int(c_s/2):int(c_e/2)])
-    print("Depth map split into {0} pages of shape {1}.".format(len(first),first[0].shape))
+    print("Depth map split into {0} pages of shape {1}.\n".format(len(first),first[0].shape))
     return first, second
 
 def reconstruct(splits):
     #split sizes must be the same
     #first concat along 2 axis
     #then concat along 3 axis
-    print("<---------Reconstrution pages2fullmap---------->")
+    print("<---------Concat pages2map---------->\n")
     print("Split shape: {0}".format(splits[0].shape))
     print("Amount of pages: {0}".format(len(splits)))
     rows = []
     ratio = int(np.sqrt(len(splits)))
-    print("==> desired output size: {0} in dim 2,3".format(len(splits)*ratio))
     container = None
     for i in range(ratio):
         container = splits.pop(0)
@@ -186,7 +151,7 @@ def reconstruct(splits):
     for entry in rows:
         reconstructed = torch.cat((reconstructed, entry), 3)
     
-    print("Reconstruced shape: {0}".format(reconstructed.shape))
+    print("Output map shape: {0}\n".format(reconstructed.shape))
 
     return reconstructed
             
@@ -211,7 +176,7 @@ def quick_gm(t):
     exp = 1/256 #hardcoded as sizes above 16x16 are not computed
     torch.squeeze(t)
     geomean = torch.prod(torch.pow(t,exp),0)
-    print("Geometric mean: {0}".format(geomean))
+    #print("Geometric mean: {0}".format(geomean))
     return geomean[0]
 
 
