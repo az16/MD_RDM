@@ -4,7 +4,7 @@ This is a pytorch implementation of 'Monocular Depth Estimation Using Relative D
 * (tested) - element has been tested in conjunction with other network parts
 * (tested on its own) - element has been tested by manually feeding input directly into it but not in conjuction with the rest of the network
 
-# Network [x]
+# Network
 - [x] Encoder structure (tested)
 - [x] Decoder DenseBlocks (tested)
 - [x] Decoder WSM-Blocks (tested)
