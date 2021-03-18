@@ -479,7 +479,7 @@ if __name__ == "__main__":
     # print(comparision.shape)
     # cp.alternating_least_squares(comparision, n=4, limit=100)
 
-    input_batch = torch.randn((1,3,226,226))
+    input_batch = torch.randn((16,3,226,226))
     #dn = torch.randn((16,1,16,16))
     #dn_1 = cp.resize(dn,8)
     network = DepthEstimationNet()
