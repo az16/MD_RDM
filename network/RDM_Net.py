@@ -80,13 +80,13 @@ class DepthEstimationNet(BaseModel):
         x_d9 = self.d_9(x)#relative
         
         #get fine-detail maps for each depth map
-        # f_d1 = cp.decompose_depth_map([], x_d1, 3)
-        # f_d6 = cp.decompose_depth_map([], x_d6, 3, relative_map=True)
-        # f_d7 = cp.decompose_depth_map([], x_d7, 4, relative_map=True)
-        # f_d8 = cp.decompose_depth_map([], x_d8, 5, relative_map=True)
-        # f_d9 = cp.decompose_depth_map([], x_d8, 6, relative_map=True)
+        f_d1 = cp.decompose_depth_map([], x_d1, 3)
+        f_d6 = cp.decompose_depth_map([], x_d6, 3, relative_map=True)
+        f_d7 = cp.decompose_depth_map([], x_d7, 4, relative_map=True)
+        f_d8 = cp.decompose_depth_map([], x_d8, 5, relative_map=True)
+        f_d9 = cp.decompose_depth_map([], x_d9, 6, relative_map=True)
         
-        return x_d1, x_d6, x_d7, x_d8, x_d9 
+        return f_d1, f_d6, f_d7, f_d8, f_d9 
 class Decoder(nn.Module):
     def __init__(self, in_channels, num_wsm_layers, DORN, id, quant):
         super(Decoder, self).__init__()
@@ -285,7 +285,7 @@ class Ordinal_Layer(nn.Module):
         # decode_c = torch.sum(ord_c1, dim=1).view(-1, 1, H, W)
         print(decode_c.shape)
         print("D1 done.")
-        return decode_c, ord_c1
+        return decode_c#, ord_c1
 
     def forward(self, x):
         if self.dorn:
@@ -445,50 +445,26 @@ def _wsm_output_planes(decoder_id):
     else:
         return 1
 
+def debug(container, id):
+    print("Found {0} fine detail maps in decoder {1} output.".format(len(container), id))
+    print("Shapes:")
+    for t in container:
+        print(t.shape)
+    print("Nans -> {0}".format(cp.find_nans(container)))
+    print("\n")
+
 if __name__ == "__main__":
-    #encoder test lines
-    
-    # print("Encoder test\n")
-    # image = torch.randn((16,3,226,226))
-    # model = DepthEstimationNet("")
-    # print("Image\n")
-    # print(image.shape)
-    # print(model)
-    # pretrained = model(image)
-    # print("Encoder result\n")
-    # print(pretrained.shape)
-    
-    
-    # print("WSMLayer test\n")
-    # #wsm test lines
-    # print("Test image\n")
-    # wsm_test_image = torch.rand((1,1,5,5))
-    # print(wsm_test_image)
-    # compressed_horizontal = wsm_test(wsm_test_image)
-    # print("WSM compressed feature\n")
-    # print(compressed_horizontal)
-    
-
-    #als test lines
-
-    # encoder_output = torch.randint(1,10,(1, 1, 8, 8))
-    # encoder_output2 = torch.randint(1,10,(1, 1, 16, 16))
-    #quant = Quantization()
-    #ord = Ordinal_Layer(7, False, quant)
-    # comparision = ord.sparse_comparison_id(encoder_output2, 4)
-    # print(comparision.shape)
-    # cp.alternating_least_squares(comparision, n=4, limit=100)
-
-    input_batch = torch.randn((16,3,226,226))
+   
+    input_batch = torch.randn((4,3,226,226))
     #dn = torch.randn((16,1,16,16))
     #dn_1 = cp.resize(dn,8)
     network = DepthEstimationNet()
     d1,d6,d7,d8,d9 = network(input_batch)
-    #result = ord.sparse_comparison_id(dn,dn_1)
-    #print(cp.alternating_least_squares(result,4,limit=100,debug=False))
-    #result = cp.principal_eigen(result)
-    #print(result.shape)
-    #print(result)
+    debug(d1, 1)
+    debug(d6, 6)
+    debug(d7, 7)
+    debug(d8, 8)
+    debug(d9, 9)
 
 
     

@@ -367,6 +367,10 @@ def valid_range_maker(input_size, in_type):
     return valid_range
 
 def find_nans(container):
+    """
+    checks if nans are contained in a list of tensors
+    returns True if it does, False if it doesn't 
+    """
     for tensor in container:
        if torch.any(tensor.isnan()):
            return True
@@ -374,6 +378,7 @@ def find_nans(container):
     return False
 
 def resize(depth_map, newsize):
+    
     depth_map = depth_map.double()
     return nn.functional.interpolate(depth_map,size=newsize)
 
@@ -399,16 +404,16 @@ def decompose_depth_map(container, dn, n, relative_map=False):
              hadamard devision (elementwise division)
     """
     if n == 0:
-        if relative_map:
+        if not relative_map:
             container.append(dn)#append d_0
-        print("Decomposed into {0} fine detail maps.".format(len(container)))
-        print("NaN values found? --> {0}".format(find_nans(container)))
+        print("\nDecomposed into {0} fine detail maps.".format(len(container)))
+        print("NaN values found? -> {0}".format(find_nans(container)))
         return container
     elif n >= 1:
         dn_1 = resize(dn, 2**(n-1))
         fn = dn / upsample(dn_1)
         container.append(fn)
-        return decompose_depth_map(container, dn_1, n-1)
+        return decompose_depth_map(container, dn_1, n-1, relative_map)
 
 def recombination(list_of_components, n=7):
     """
@@ -430,9 +435,5 @@ def recombination(list_of_components, n=7):
 
 
 if __name__ == "__main__":
-    t1 = torch.rand((1,1,128,128))
-    result = decompose_depth_map([],t1,7)
-    # t2 = torch.rand((1,1,32,32))
-    # t1, t2 = split_matrix(t1, t2)
-    # reconstruct(t1)
+    pass
    
