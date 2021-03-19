@@ -14,7 +14,7 @@ This is a pytorch implementation of 'Monocular Depth Estimation Using Relative D
 - [x] ALS depth map reconstruction (tested)
 - [x] Network propagation up to batch size 16 (tested) 
 # Post Processing
-- [x] Depth Map Decomposition (tested on its own)
+- [x] Depth Map Decomposition (tested)
 - [ ] Optimal Map Reconstruction
 # Training and Data
 - [ ] Training cycle
