@@ -1,0 +1,5 @@
+pytorch_lightning==0.17.1
+scipy==1.6.1
+matplotlib==3.3.4
+h5py==3.2.1
+opencv_python==4.5.1.48
