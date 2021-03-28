@@ -417,23 +417,39 @@ def decompose_depth_map(container, dn, n, relative_map=False):
 
 def recombination(list_of_components, n=7):
     """
+    This method combines the optimal candidates for each fine detail map. Therefore 
+    output received from the depth estimation net can't be fed directly to this method.
+    In a previous step the optimal components have to be chosen.
+
     list_of_components - list of optimal recombination candidates for 
                          one input image (sorted after id in ascending order)
-    n - the id of the depth map that is supposed to be recombined
+    n - the id of the depth map that is supposed to be recombined (n=7 by default since we want a 128x128 map)
     returns - Reconstructed depthmap in log scale according to formula (6) from paper
     """
     d_0 = torch.log(multi_upsample(list_of_components.pop(0), n))
 
     result =  torch.log(multi_upsample(list_of_components.pop(0), n-1))
-    for i in range(n-1):
+    for i in range(n-2):
+        #print(len(list_of_components), i)
         result = result+torch.log(multi_upsample(list_of_components[i], n-(i+2)))
     
     optimal_map = d_0 + result 
     return optimal_map
 
 
+def debug_recombination():
+    """
+    returns a list of fine detail components to test the recombination method
+    """
+    container = [torch.randint(1,10,(1,1,2**x,2**x)) for x in range(7)]
+
+    return container
 
 
 if __name__ == "__main__":
-    pass
+   print(recombination(debug_recombination()).shape)
+   print(recombination(debug_recombination()))
+
+
+
    
