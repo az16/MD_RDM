@@ -85,7 +85,13 @@ class DepthEstimationNet(BaseModel):
         f_d7 = cp.decompose_depth_map([], x_d7, 4, relative_map=True)
         f_d8 = cp.decompose_depth_map([], x_d8, 5, relative_map=True)
         f_d9 = cp.decompose_depth_map([], x_d9, 6, relative_map=True)
-        
+
+        #fine_detail_matrices = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9])
+
+        #optimal_candidates = cp.make_optimal_component(fine_detail_matrices)
+
+        #final_map = cp.recombination(optimal_candidates)
+        #return final_map
         return f_d1, f_d6, f_d7, f_d8, f_d9 
 class Decoder(nn.Module):
     def __init__(self, in_channels, num_wsm_layers, DORN, id, quant):

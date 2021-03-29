@@ -436,6 +436,48 @@ def recombination(list_of_components, n=7):
     optimal_map = d_0 + result 
     return optimal_map
 
+def relative_fine_detail_matrix(fine_detail_rows):
+    """
+    fine_detail_row - list of fine detail lists obtained from relative depth maps
+    returns - matrix of relative fine detail components
+    """
+    slots = [[] for x in range(7)]
+    
+    #put candidates of the same size together in lists
+    for i in range(7):
+        for component in fine_detail_rows:
+            if len(component[0]) > 0:
+                if i==0 and component[1]:
+                    slots[i].append(component[0].pop(0))
+                elif i>0:
+                    slots[i].append(component[0].pop(0))
+    
+    #create matrix from candidates
+    fine_detail_matrices = [make_matrix(x) for x in slots]
+
+    return fine_detail_matrices
+
+def make_matrix(list_of_candidates):
+    """
+    Method that reshapes each candidate into a column vector a_i and horizontally
+    stacks them to create a fine detail matrix A where each column is a fine detail map a_i.
+
+    list_of_candidates - all fine detail components of same size in a list
+    returns - matrix of all fine detail components
+    """
+    B,C,H,W = list_of_candidates[0].size
+    candidates = [to_numpy(x.view(B,C*H*W)) for x in list_of_candidates]
+    
+    init = candidates.pop(0)
+    for remaining in candidates:
+        init = np.hstack((init,remaining))
+    
+    result = from_numpy(init)
+
+    return result
+
+def make_optimal_component(fine_detail_matrix):
+    return 0
 
 def debug_recombination():
     """
