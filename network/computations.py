@@ -18,12 +18,12 @@ def principal_eigen(p_3):
     returns p_3 with approximated values
 
     """
-    result = torch.lobpcg(p_3, k=1, largest=True)[1].cpu().detach().numpy()
-    result = np.abs(result)
+    result = torch.lobpcg(p_3, k=1, largest=True)[1]
+    result = torch.abs(result)
     for i in range(result.shape[0]):
-        #print(result[i])
-        result[i] = result[i]/geometric_mean(result[i], len(result[i]), 1)
-    return from_numpy(result).view(result.shape[0],1,8,8)
+        #print(len(result[i].shape))
+        result[i] = result[i]/geometric_mean(result[i], result.shape[1], result.shape[2])
+    return result.view(result.shape[0],1,8,8)
 
 def alternating_least_squares(sparse_m, n, limit = 100, debug=False):
     """
@@ -82,11 +82,9 @@ def min_eps(loss, eps=0.000001):
         return True
     else:
         #print("eps: {0}".format(np.abs(loss[-1]-loss[-2])))
-        return np.abs(loss[-1]-loss[-2])>eps
+        return abs(loss[-1]-loss[-2])>eps
 
-def matmul(t1, t2, numpy=False):
-    if numpy:
-        return np.matmul(t1,t2)
+def matmul(t1, t2):
     return torch.matmul(t1,t2)
 
 def rmse(m1, m2):
@@ -97,15 +95,10 @@ def als_step(ratings, fixed_tensor, regularization_term = 0.05):
         when updating the user matrix,
         the item matrix is the fixed vector and vice versa
         """
-        ratings = to_numpy(ratings)
-        fixed_tensor = to_numpy(fixed_tensor)
-        A = fixed_tensor.T.dot(fixed_tensor) + np.eye(fixed_tensor.shape[1]) * regularization_term
-        b = ratings.dot(fixed_tensor)
-        #print(A.shape)
-        A_inv = np.linalg.inv(A)
-        solve_vecs = b.dot(A_inv)
-        solve_vecs = from_numpy(solve_vecs)
-        #print(solve_vecs.shape)
+        A = fixed_tensor.T@fixed_tensor + torch.eye(fixed_tensor.shape[1]) * regularization_term
+        b = ratings@fixed_tensor
+        A_inv = torch.inverse(A)
+        solve_vecs = b@A_inv
         return solve_vecs
 
 def from_numpy(tensor):
@@ -139,7 +132,7 @@ def reconstruct(splits):
     print("Split shape: {0}".format(splits[0].shape))
     print("Amount of pages: {0}".format(len(splits)))
     rows = []
-    ratio = int(np.sqrt(len(splits)))
+    ratio = int(len(splits)**(1/2))
     container = None
     for i in range(ratio):
         container = splits.pop(0)
@@ -147,27 +140,14 @@ def reconstruct(splits):
             container = torch.cat((container, splits.pop(0)), 2)
         rows.append(container)
     
-    reconstructed = rows.pop(0)
-    for entry in rows:
-        reconstructed = torch.cat((reconstructed, entry), 3)
+    reconstructed = torch.cat(rows, dim=3)
     
     print("Output map shape: {0}\n".format(reconstructed.shape))
 
     return reconstructed
-            
-def summarize(tensor, axis):
-    result = torch.sum(tensor, axis)/tensor.shape[-1]
-    return result
-
-def cat_splits(splits):
-    result = splits.pop(0)
-    for split in splits:
-        result = torch.cat((result, split), 2)
-    
-    return result
 
 def geometric_mean(iterable, r, c):
-    return np.array([x**(1/(r*c)) for x in iterable]).prod()
+    return torch.prod(torch.pow(iterable,1/(r*c)),0)
 
 def quick_gm(t):
     """
@@ -178,7 +158,6 @@ def quick_gm(t):
     geomean = torch.prod(torch.pow(t,exp),0)
     #print("Geometric mean: {0}".format(geomean))
     return geomean[0]
-
 
 def get_size(id):
     if id == 3:
@@ -191,28 +170,6 @@ def get_size(id):
         return 64,32
     elif id == 7:
         return 128,64
-
-def merge_into_row(size, data_to_merge, start_index):
-    print("start index: {0}".format(start_index))
-    first_split = np.empty(start_index)
-    second_split = np.empty(size-(len(first_split)+len(data_to_merge)))
-    data_to_merge = data_to_merge.cpu().detach().numpy()
-    result = np.hstack((first_split, data_to_merge, second_split))
-    return torch.from_numpy(result)
-
-def mask16x16():
-    mask = torch.zeros((16,16,64))
-    for index_row in range(16):
-                for index_col in range(16):
-                    index_resized_row = np.floor(index_row/2)
-                    index_resized_col = np.floor(index_col/2)
-                    index_row_start = int(min(max(index_resized_row, 0), 5))
-                    index_row_end = index_row_start+2
-                    index_col_start = int(min(max(index_resized_col, 0), 5))
-                    index_col_end = index_col_start+3
-                    comparison_area = get_resized_area(index_row_start, index_row_end, index_col_start, index_col_end, torch.ones((1,1,8,8)))
-                    mask[index_row][index_col][:] = comparison_area
-    return mask
 
 def get_resized_area(r_s, r_e, c_s, c_e, dn_1):
     """
@@ -236,23 +193,6 @@ def get_resized_area(r_s, r_e, c_s, c_e, dn_1):
     # print("Result")
     # print(result)
     return result
-
-def frange(start, stop=None, step=None):
-
-    if stop == None:
-        stop = start + 0.0
-        start = 0.0
-
-    if step == None:
-        step = 1.0
-
-    while True:
-        if step > 0 and start >= stop:
-            break
-        elif step < 0 and start <= stop:
-            break
-        yield (start) # return float number
-        start = start + step
 
 def depth2label_sid(depth, K=80.0, alpha=1.0, beta=90.4414):
     alpha = torch.tensor(alpha)
@@ -294,77 +234,6 @@ def colored_depthmap(depth, d_min=None, d_max=None):
         d_max = np.max(depth)
     depth_relative = (depth - d_min) / (d_max - d_min)
     return 255 * plt.cm.jet(depth_relative)[:, :, :3]  # H, W, C
-
-def valid_range_maker(input_size, in_type):
-    window = []
-    if in_type == 1:
-        window = [
-            [0,1,0],
-            [1,1,1],
-            [0,1,0]]
-    elif in_type == 2:
-        window = [
-            [1,1,1],
-            [1,1,1],
-            [1,1,1]]
-    elif in_type == 4:
-        window = [
-            [0,0,1,0,0],
-            [0,1,1,1,0],
-            [1,1,1,1,1],
-            [0,1,1,1,0],
-            [0,0,1,0,0]]
-    elif in_type == 5:
-        window = [
-            [0,1,1,1,0],
-           [ 1,1,1,1,1],
-            [1,1,1,1,1],
-            [1,1,1,1,1],
-            [0,1,1,1,0]]
-    elif in_type == 8:
-        window = [
-            [1,1,1,1,1],
-            [1,1,1,1,1],
-            [1,1,1,1,1],
-            [1,1,1,1,1],
-            [1,1,1,1,1]]
-    
-    window = np.array(window)
-    distance = np.floor(np.sqrt(in_type)).astype(int) #in range[1-2]
-    
-    row_size = input_size[0]**2
-    col_size = input_size[1]**2
-    rc_ratio = input_size[0]/input_size[1]
-
-    valid_range = np.zeros((input_size[0], input_size[0], input_size[1], input_size[1]))
-
-    for index_row_col in range (input_size[0]):
-        for index_row_row in range (input_size[0]):
-            
-            index_col_col = np.ceil(index_row_col/rc_ratio) #in range [0-8]
-            index_col_row = np.ceil(index_row_row/rc_ratio) #in range [0-8]
-            
-            index_col_col_start = (max(index_col_col-distance, 0))#[0-6]
-            index_col_col_end = (min(index_col_col+distance, input_size[1])) #[1-input[1]]
-            index_col_row_start = (max(index_col_row-distance, 0))#[0-6]
-            index_col_row_end = (min(index_col_row+distance, input_size[1])) #[1-input[1]]
-            index_window_col_start = (index_col_col_start - (index_col_col-distance))
-            index_window_col_end = ((index_col_col+distance) - index_col_col_end)
-            index_window_row_start = (index_col_row_start - (index_col_row-distance))
-            index_window_row_end = ((index_col_row+distance) - index_col_row_end)
-
-            idx_v1 = np.array([x for x in range(index_col_row_start,index_col_row_end.astype(int))])
-            idx_v2 = np.array([x for x in range(index_col_col_start,index_col_col_end.astype(int))])
-            idx_v3 = np.array([x for x in range(1+index_window_row_start.astype(int),len(window)-index_window_row_end.astype(int))])
-            idx_v4 = np.array([x for x in range(1+index_window_col_start.astype(int),len(window)-index_window_col_end.astype(int))])
-
-            print(idx_v1, idx_v2, idx_v3, idx_v4)
-            if len(idx_v1 > 0):
-                valid_range[index_row_row, index_row_col, idx_v1, idx_v2] = window[idx_v3, idx_v4]
-
-    valid_range = torch.from_numpy(valid_range).view(row_size,col_size)
-
-    return valid_range
 
 def find_nans(container):
     """
@@ -466,15 +335,8 @@ def make_matrix(list_of_candidates):
     returns - matrix of all fine detail components
     """
     B,C,H,W = list_of_candidates[0].size
-    candidates = [to_numpy(x.view(B,C*H*W)) for x in list_of_candidates]
-    
-    init = candidates.pop(0)
-    for remaining in candidates:
-        init = np.hstack((init,remaining))
-    
-    result = from_numpy(init)
-
-    return result
+    candidates = [x.view(B,1,C*H*W) for x in list_of_candidates]
+    return torch.squeeze(torch.cat(candidates, dim=1))
 
 def make_optimal_component(fine_detail_matrix):
     return 0
@@ -489,9 +351,11 @@ def debug_recombination():
 
 
 if __name__ == "__main__":
-   print(recombination(debug_recombination()).shape)
-   print(recombination(debug_recombination()))
+    for dmap in debug_recombination():
+        print(dmap.shape)
 
+    print("recombinated shape: {0}".format(recombination(debug_recombination()).shape))
+    print(recombination(debug_recombination()))
 
 
    
