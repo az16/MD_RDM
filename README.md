@@ -13,10 +13,11 @@ This is a pytorch implementation of 'Monocular Depth Estimation Using Relative D
 - [x] Lloyd Quantization of depth pairs (tested)
 - [x] ALS depth map reconstruction (tested)
 - [x] Network propagation up to batch size 16 (tested) 
-# Post Processing
+# Finalizing Output
 - [x] Depth Map Decomposition (tested)
-- [ ] Weight optimization for fine detail maps
-- [ ] Optimal Map Reconstruction
+- [x] Weight optimization for fine detail maps
+- [ ] Decomposition of ground truth while propagating input through network
+- [x] Optimal Map Reconstruction (tested on its own)
 # Training and Data
 - [ ] Training cycle
 - [ ] Dataloaders + Augmentation
