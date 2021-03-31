@@ -338,8 +338,11 @@ def make_matrix(list_of_candidates):
     candidates = [x.view(B,1,C*H*W) for x in list_of_candidates]
     return torch.squeeze(torch.cat(candidates, dim=1))
 
-def make_optimal_component(fine_detail_matrix):
+def make_optimal_component(yhat, y):
     return 0
+
+def squared_err(yhat,y):
+    return torch.sum(torch.abs(y-yhat)**2, 1)
 
 def debug_recombination():
     """

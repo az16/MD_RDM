@@ -43,10 +43,10 @@ class DepthEstimationNet(BaseModel):
         #Decoders 1-10
         #First 5 estimate regular depth maps using DORN loss and SID algorithm
         self.d_1 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=1, quant=self.quantizers)
-        self.d_2 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=2, quant=self.quantizers)
-        self.d_3 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=3, quant=self.quantizers)
-        self.d_4 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=4, quant=self.quantizers)
-        self.d_5 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=5, quant=self.quantizers)
+        self.d_2 = Decoder(in_channels=1056, num_wsm_layers=1, DORN=True, id=2, quant=self.quantizers)
+        self.d_3 = Decoder(in_channels=1056, num_wsm_layers=2, DORN=True, id=3, quant=self.quantizers)
+        self.d_4 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=True, id=4, quant=self.quantizers)
+        self.d_5 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=True, id=5, quant=self.quantizers)
         
         #Remaining 5 estimate relative depth maps using 
         self.d_6 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=6, quant=self.quantizers)
@@ -86,9 +86,10 @@ class DepthEstimationNet(BaseModel):
         f_d8 = cp.decompose_depth_map([], x_d8, 5, relative_map=True)
         f_d9 = cp.decompose_depth_map([], x_d9, 6, relative_map=True)
 
-        #fine_detail_matrices = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9])
-
-        #optimal_candidates = cp.make_optimal_component(fine_detail_matrices)
+        #optimization of components
+        # y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9])
+        # y = cp.decompose_depth_map([], ground_truth, 7)
+        # optimal_candidates = cp.make_optimal_component(y_hat, y)
 
         #final_map = cp.recombination(optimal_candidates)
         #return final_map
@@ -374,6 +375,18 @@ class Quantization():
             return 64
         elif id == 7:
             return 128
+class Weights:
+    def __init__(self, vector_sizes):
+        self.weight_list = self._make_weightvector_list_(vector_sizes)
+
+    def update(self, weight_index, lr, gradient):
+        self.weight_list[weight_index] = self.weight_list[weight_index] - lr * gradient
+    
+    def get(self, index):
+        return self.weight_list[index]
+
+    def _make_weightvector_list_(self, sizes):
+        return [torch.randn((size,1)) for size in sizes]
 
 def _make_wsm_vertical_(in_channels, out_channels, kernel_size, stride):
     """Stride has to be chosen in a way that only one convolution is performed
@@ -460,17 +473,23 @@ def debug(container, id):
     print("\n")
 
 if __name__ == "__main__":
-   
-    input_batch = torch.randn((4,3,226,226))
+    dataset = [(torch.randn((4,3,226,226)),torch.randn((4,1,128,128))) for x in range(50)]
     #dn = torch.randn((16,1,16,16))
     #dn_1 = cp.resize(dn,8)
+    w_x = Weights([1,5,5,5,3,2,1,0])
+    EPOCHS = range(10)
     network = DepthEstimationNet()
-    d1,d6,d7,d8,d9 = network(input_batch)
-    debug(d1, 1)
-    debug(d6, 6)
-    debug(d7, 7)
-    debug(d8, 8)
-    debug(d9, 9)
+    for epoch in EPOCHS:
+        for input_batch in dataset:
+            d1,d6,d7,d8,d9 = network(input_batch[0])
+            #debug(d1, 1)
+            #debug(d6, 6)
+            #debug(d7, 7)
+            #debug(d8, 8)
+            #debug(d9, 9)
+            y_hat = cp.relative_fine_detail_matrix([d1, d6, d7, d8, d9])
+            y = cp.decompose_depth_map([], input_batch[1], 7)
+            optimal_candidates = cp.make_optimal_component(y_hat, y)
 
 
     
