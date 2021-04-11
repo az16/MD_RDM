@@ -1,6 +1,7 @@
 import numpy as np 
 import torch 
 import torch.nn as nn
+import math
 from scipy.sparse import linalg  as sp
 from scipy import sparse as s
 from statistics import geometric_mean as gm
@@ -313,18 +314,35 @@ def relative_fine_detail_matrix(fine_detail_rows):
     slots = [[] for x in range(7)]
     
     #put candidates of the same size together in lists
-    for i in range(7):
-        for component in fine_detail_rows:
-            if len(component[0]) > 0:
-                if i==0 and component[1]:
-                    slots[i].append(component[0].pop(0))
-                elif i>0:
-                    slots[i].append(component[0].pop(0))
+    for row in fine_detail_rows:
+        for fine_detail_map in row:
+            idx = idx_from_size(fine_detail_map)
+            slots[idx].append(fine_detail_map)
     
     #create matrix from candidates
     fine_detail_matrices = [make_matrix(x) for x in slots]
 
     return fine_detail_matrices
+
+def idx_from_size(fine_detail_map):
+    B,C,H,W = fine_detail_map.size()
+
+    if H == 1:
+        return 0
+    elif H == 2:
+        return 1
+    elif H == 4:
+        return 2
+    elif H == 8:
+        return 3
+    elif H == 16:
+        return 4
+    elif H == 32:
+        return 5
+    elif H == 64:
+        return 6
+    elif H == 128:
+        return 7
 
 def make_matrix(list_of_candidates):
     """
@@ -334,12 +352,28 @@ def make_matrix(list_of_candidates):
     list_of_candidates - all fine detail components of same size in a list
     returns - matrix of all fine detail components
     """
-    B,C,H,W = list_of_candidates[0].size
+    B,C,H,W = list_of_candidates[0].size()
     candidates = [x.view(B,1,C*H*W) for x in list_of_candidates]
-    return torch.squeeze(torch.cat(candidates, dim=1))
+    return torch.cat(candidates, dim=1)
 
-def make_optimal_component(yhat, y):
+def optimize_components(weights, lr, yhat, y):
+    pred = make_pred(weights, yhat)
+    loss = squared_err(yhat,y)
+    loss.backward()
+    with torch.no_grad():
+        for i in range(len(weights.weightlist)) :
+            weights.update(i, lr, loss)
     return 0
+
+def make_pred(w, A):
+    for i in range(len(A)):
+        B,M = A[i].shape[0], A[i].shape[2]
+        tmp = torch.zeros((B, M, 1))
+
+        for b in range(A[i].shape[0]):
+           tmp[b]  = A[i][b].T.float()@w[i].float()
+        A[i] = tmp.view(B,1,int(math.sqrt(M)),int(math.sqrt(M)))
+    return A 
 
 def squared_err(yhat,y):
     return torch.sum(torch.abs(y-yhat)**2, 1)
@@ -351,7 +385,6 @@ def debug_recombination():
     container = [torch.randint(1,10,(1,1,2**x,2**x)) for x in range(7)]
 
     return container
-
 
 if __name__ == "__main__":
     for dmap in debug_recombination():

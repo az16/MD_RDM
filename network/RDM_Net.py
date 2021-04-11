@@ -80,11 +80,11 @@ class DepthEstimationNet(BaseModel):
         x_d9 = self.d_9(x)#relative
         
         #get fine-detail maps for each depth map
-        f_d1 = cp.decompose_depth_map([], x_d1, 3)
-        f_d6 = cp.decompose_depth_map([], x_d6, 3, relative_map=True)
-        f_d7 = cp.decompose_depth_map([], x_d7, 4, relative_map=True)
-        f_d8 = cp.decompose_depth_map([], x_d8, 5, relative_map=True)
-        f_d9 = cp.decompose_depth_map([], x_d9, 6, relative_map=True)
+        f_d1 = cp.decompose_depth_map([], x_d1, 3)[::-1]
+        f_d6 = cp.decompose_depth_map([], x_d6, 3, relative_map=True)[::-1]
+        f_d7 = cp.decompose_depth_map([], x_d7, 4, relative_map=True)[::-1]
+        f_d8 = cp.decompose_depth_map([], x_d8, 5, relative_map=True)[::-1]
+        f_d9 = cp.decompose_depth_map([], x_d9, 6, relative_map=True)[::-1]
 
         #optimization of components
         # y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9])
@@ -386,7 +386,7 @@ class Weights:
         return self.weight_list[index]
 
     def _make_weightvector_list_(self, sizes):
-        return [torch.randn((size,1)) for size in sizes]
+        return [torch.randn((size,1), requires_grad=True) for size in sizes]
 
 def _make_wsm_vertical_(in_channels, out_channels, kernel_size, stride):
     """Stride has to be chosen in a way that only one convolution is performed
@@ -473,23 +473,18 @@ def debug(container, id):
     print("\n")
 
 if __name__ == "__main__":
-    dataset = [(torch.randn((4,3,226,226)),torch.randn((4,1,128,128))) for x in range(50)]
-    #dn = torch.randn((16,1,16,16))
-    #dn_1 = cp.resize(dn,8)
-    w_x = Weights([1,5,5,5,3,2,1,0])
-    EPOCHS = range(10)
+    ground_truth = torch.randn((4,1,128,128))
+    test_input = torch.randn((4,3,226,226))
+    lr = 0.001
+    weight_layer = Weights([1,5,5,5,3,2,1,0])
     network = DepthEstimationNet()
-    for epoch in EPOCHS:
-        for input_batch in dataset:
-            d1,d6,d7,d8,d9 = network(input_batch[0])
-            #debug(d1, 1)
-            #debug(d6, 6)
-            #debug(d7, 7)
-            #debug(d8, 8)
-            #debug(d9, 9)
-            y_hat = cp.relative_fine_detail_matrix([d1, d6, d7, d8, d9])
-            y = cp.decompose_depth_map([], input_batch[1], 7)
-            optimal_candidates = cp.make_optimal_component(y_hat, y)
+    d1, d6, d7, d8, d9 = network(test_input)
+    y_hat = cp.relative_fine_detail_matrix([d1, d6, d7, d8, d9])
+    y = cp.decompose_depth_map([], ground_truth, 7)[::-1]
+    y_hat = cp.make_pred(weight_layer.weight_list, y_hat)
+    for i in range(7):
+        print(y_hat[i].shape, y[i].shape)
+    #optimal_candidates = cp.optimize_components(weight_layer, lr, y_hat, y)
 
 
     
