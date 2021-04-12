@@ -359,11 +359,11 @@ def make_matrix(list_of_candidates):
 def optimize_components(weights, lr, yhat, y):
     pred = make_pred(weights, yhat)
     loss = squared_err(yhat,y)
-    loss.backward()
+    loss = [x.backward() for x in loss]
     with torch.no_grad():
         for i in range(len(weights.weightlist)) :
-            weights.update(i, lr, loss)
-    return 0
+            weights.update(i, lr, weights.weightlist[i].grad)
+    return 
 
 def make_pred(w, A):
     for i in range(len(A)):
@@ -376,7 +376,11 @@ def make_pred(w, A):
     return A 
 
 def squared_err(yhat,y):
-    return torch.sum(torch.abs(y-yhat)**2, 1)
+    sqr_err_list = []
+    for i in range(7):
+        sqr_err_list.append(torch.sum(torch.abs(y[i]-yhat[i])**2, 1))
+
+    return sqr_err_list
 
 def debug_recombination():
     """

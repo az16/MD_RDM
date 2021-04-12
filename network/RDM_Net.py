@@ -481,10 +481,10 @@ if __name__ == "__main__":
     d1, d6, d7, d8, d9 = network(test_input)
     y_hat = cp.relative_fine_detail_matrix([d1, d6, d7, d8, d9])
     y = cp.decompose_depth_map([], ground_truth, 7)[::-1]
-    y_hat = cp.make_pred(weight_layer.weight_list, y_hat)
-    for i in range(7):
-        print(y_hat[i].shape, y[i].shape)
-    #optimal_candidates = cp.optimize_components(weight_layer, lr, y_hat, y)
+   
+    optimal_candidates = cp.optimize_components(weight_layer.weight_list, lr, y_hat, y)
+    result = cp.recombination(optimal_candidates)
+    print(result.shape)
 
 
     
