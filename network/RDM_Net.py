@@ -87,13 +87,13 @@ class DepthEstimationNet(BaseModel):
         f_d9 = cp.decompose_depth_map([], x_d9, 6, relative_map=True)[::-1]
 
         #optimization of components
-        # y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9])
-        # y = cp.decompose_depth_map([], ground_truth, 7)
-        # optimal_candidates = cp.make_optimal_component(y_hat, y)
-
-        #final_map = cp.recombination(optimal_candidates)
-        #return final_map
-        return f_d1, f_d6, f_d7, f_d8, f_d9 
+        y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9])
+        #optimize weight layer 
+        optimal_candidates = cp.optimize_components(weight_layer, lr, y_hat, decomposed_y)
+        #returned candidates are recombined to final depth map
+        #cp.debug_print_list(optimal_candidates)
+        final = cp.recombination(optimal_candidates)
+        return final
 class Decoder(nn.Module):
     def __init__(self, in_channels, num_wsm_layers, DORN, id, quant):
         super(Decoder, self).__init__()
