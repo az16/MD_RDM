@@ -356,14 +356,31 @@ def make_matrix(list_of_candidates):
     candidates = [x.view(B,1,C*H*W) for x in list_of_candidates]
     return torch.cat(candidates, dim=1)
 
-def optimize_components(weights, lr, yhat, y):
-    pred = make_pred(weights, yhat)
-    loss = squared_err(yhat,y)
+def optimize_components_old(weights, lr, yhat, y):
+    w = weights.weight_list
+
+    pred = make_pred(w, yhat)
+    loss = squared_err(pred,y)
     loss = [x.backward() for x in loss]
     with torch.no_grad():
-        for i in range(len(weights.weightlist)) :
-            weights.update(i, lr, weights.weightlist[i].grad)
-    return 
+        for i in range(len(yhat)) :
+            #print(w[i].grad)
+            weights.update(i, lr, w[i].grad)
+    
+    return pred
+
+def optimize_components(weights, lr, yhat, y):
+    w = weights.weight_list
+    #debug_print_list(w)
+    pred = make_pred(w, yhat)
+    loss = squared_err(pred,y)
+
+    optimizer = torch.optim.SGD(params=w,lr=lr)
+    optimizer.zero_grad()
+    loss = [x.backward() for x in loss]
+    optimizer.step()
+
+    return pred
 
 def make_pred(w, A):
     for i in range(len(A)):
@@ -378,7 +395,7 @@ def make_pred(w, A):
 def squared_err(yhat,y):
     sqr_err_list = []
     for i in range(7):
-        sqr_err_list.append(torch.sum(torch.abs(y[i]-yhat[i])**2, 1))
+        sqr_err_list.append(torch.sum(torch.abs(y[i]-yhat[i])**2))
 
     return sqr_err_list
 
@@ -389,6 +406,11 @@ def debug_recombination():
     container = [torch.randint(1,10,(1,1,2**x,2**x)) for x in range(7)]
 
     return container
+
+def debug_print_list(li):
+    print("length: {0}".format(len(li)))
+    for el in li:
+        print(el)
 
 if __name__ == "__main__":
     for dmap in debug_recombination():

@@ -386,7 +386,7 @@ class Weights:
         return self.weight_list[index]
 
     def _make_weightvector_list_(self, sizes):
-        return [torch.randn((size,1), requires_grad=True) for size in sizes]
+        return [torch.ones((size,1), requires_grad=True) for size in sizes]
 
 def _make_wsm_vertical_(in_channels, out_channels, kernel_size, stride):
     """Stride has to be chosen in a way that only one convolution is performed
@@ -473,18 +473,27 @@ def debug(container, id):
     print("\n")
 
 if __name__ == "__main__":
+    #inputs
     ground_truth = torch.randn((4,1,128,128))
     test_input = torch.randn((4,3,226,226))
+    #optimization params
     lr = 0.001
     weight_layer = Weights([1,5,5,5,3,2,1,0])
+    #get network prediction
     network = DepthEstimationNet()
     d1, d6, d7, d8, d9 = network(test_input)
+    #get fine detail candidates and ground truth candidates
     y_hat = cp.relative_fine_detail_matrix([d1, d6, d7, d8, d9])
     y = cp.decompose_depth_map([], ground_truth, 7)[::-1]
-   
-    optimal_candidates = cp.optimize_components(weight_layer.weight_list, lr, y_hat, y)
+    #optimize weight layer 
+    optimal_candidates = cp.optimize_components(weight_layer, lr, y_hat, y)
+    #returned candidates are recombined to final depth map
+    #cp.debug_print_list(optimal_candidates)
     result = cp.recombination(optimal_candidates)
-    print(result.shape)
+    #check the result
+    print("\nFound final output nan values: {0}".format(cp.find_nans(result)))
+    print("Final output size: {0}".format(result.shape))
+    print(result)
 
 
     
