@@ -4,24 +4,14 @@ import math
 import numpy as np
 
 
-class RDM_Combined_Loss():
-    def __init__(self, ordinal_loss, rmse_loss, l2_loss):
-        self.dorn_loss = ordinal_loss
-        self.als_loss = rmse_loss
-        self.component_loss = l2_loss
-        self.total_loss = 0.0 
-    
-    def calc(self):
 
-        return self.dorn_loss + self.als_loss + self.component_loss #+ TODO: find out which loss is used for the final network prediction
-    
 class Ordinal_Loss():
     """
     Ordinal loss is defined as the average of pixelwise ordinal loss F(h, w, X, O)
     over the entire image domain:
     """
 
-    def __init__(self, ord_labels, target):
+    def __init__(self):
         self.loss = 0.0
 
     def calc(self, ord_labels, target):

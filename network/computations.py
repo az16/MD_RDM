@@ -228,6 +228,40 @@ def label2depth_sid(label, K=80.0, alpha=1.0, beta=89.4648, gamma=-0.9766):
     depth = (ti_0 + ti_1) / 2 - gamma # avg of t(i) & t(i+1)
     return depth.float()
 
+def DornOrdinalRegression(x):
+        """
+        :param x: N X H X W X C, N is batch_size, C is channels of features
+        :return: ord_labels is ordinal outputs for each spatial locations , size is N x H X W X C (C = 2K, K is interval of SID)
+                 decode_label is the ordinal labels for each position of Image I
+        """
+        N, C, H, W = x.size()
+        #print("regression input tensor size: "+str(x.size()))
+        ord_num = C // 2
+        """
+        replace iter with matrix operation
+        fast speed methods
+        """
+        A = x[:, ::2, :, :].clone()
+        B = x[:, 1::2, :, :].clone()
+
+        A = A.view(N, 1, ord_num * H * W)
+        B = B.view(N, 1, ord_num * H * W)
+
+        C = torch.cat((A, B), dim=1)
+        C = torch.clamp(C, min=1e-8, max=1e4)  # prevent nans
+        C = C.double()
+
+        ord_c = nn.functional.softmax(C, dim=1)
+
+        ord_c1 = ord_c[:, 1, :].clone()
+        ord_c1 = ord_c1.view(-1, ord_num, H, W)
+
+        decode_c = torch.sum((ord_c1 > 0.5), dim=1).view(-1, 1, H, W)
+        # decode_c = torch.sum(ord_c1, dim=1).view(-1, 1, H, W)
+        # print(decode_c.shape)
+        # print("D1 done.")
+        return decode_c#, ord_c1
+
 def colored_depthmap(depth, d_min=None, d_max=None):
     if d_min is None:
         d_min = np.min(depth)
@@ -356,7 +390,7 @@ def make_matrix(list_of_candidates):
     candidates = [x.view(B,1,C*H*W) for x in list_of_candidates]
     return torch.cat(candidates, dim=1)
 
-def optimize_components_old(weights, lr, yhat, y):
+def optimize_components_old(weights, yhat, y, lr=0.001):
     w = weights.weight_list
 
     pred = make_pred(w, yhat)

@@ -41,20 +41,21 @@ class DepthEstimationNet(BaseModel):
         #Encoder part
         self.encoder = _make_encoder_()
         #Decoders 1-10
-        #First 5 estimate regular depth maps using DORN loss and SID algorithm
+        #First 5 estimate regular depth maps using ordinal loss and SID algorithm
         self.d_1 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=1, quant=self.quantizers)
         self.d_2 = Decoder(in_channels=1056, num_wsm_layers=1, DORN=True, id=2, quant=self.quantizers)
         self.d_3 = Decoder(in_channels=1056, num_wsm_layers=2, DORN=True, id=3, quant=self.quantizers)
         self.d_4 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=True, id=4, quant=self.quantizers)
         self.d_5 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=True, id=5, quant=self.quantizers)
         
-        #Remaining 5 estimate relative depth maps using 
+        #Remaining 5 estimate relative depth maps using ALS
         self.d_6 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=6, quant=self.quantizers)
         self.d_7 = Decoder(in_channels=1056, num_wsm_layers=1, DORN=False, id=7, quant=self.quantizers)
         self.d_8 = Decoder(in_channels=1056, num_wsm_layers=2, DORN=False, id=8, quant=self.quantizers)
         self.d_9 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=False, id=9, quant=self.quantizers)
         self.d_10 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=False, id=10, quant=self.quantizers)
 
+        self.weight_layer = Weights([1,5,5,5,3,2,1,0])
 
     def forward(self, x):
         #encoder propagation
@@ -70,7 +71,7 @@ class DepthEstimationNet(BaseModel):
         x = self.encoder.trans_e4(x)
         x = self.encoder.pad_tl(x)
 
-        #according to the authors paper the best performance is reached with decoders
+        #according to the authors, optimal performance is reached with decoders
         #1,6,7,8,9
 
         x_d1 = self.d_1(x)#regular
@@ -86,14 +87,10 @@ class DepthEstimationNet(BaseModel):
         f_d8 = cp.decompose_depth_map([], x_d8, 5, relative_map=True)[::-1]
         f_d9 = cp.decompose_depth_map([], x_d9, 6, relative_map=True)[::-1]
 
-        #optimization of components
+        #bring into matrix form
         y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9])
-        #optimize weight layer 
-        optimal_candidates = cp.optimize_components(weight_layer, lr, y_hat, decomposed_y)
-        #returned candidates are recombined to final depth map
-        #cp.debug_print_list(optimal_candidates)
-        final = cp.recombination(optimal_candidates)
-        return final
+        
+        return y_hat, x_d1
 class Decoder(nn.Module):
     def __init__(self, in_channels, num_wsm_layers, DORN, id, quant):
         super(Decoder, self).__init__()

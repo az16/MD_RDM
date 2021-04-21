@@ -2,7 +2,8 @@ import torch
 import pytorch_lightning as pl
 from metrics import MetricLogger
 from network.RDM_Net import DepthEstimationNet
-from network.computations import recombination
+from network import computations as cp
+import loss as l
 from dataloaders.nyu_dataloader import NYUDataset
 
 class RelativeDephModule(pl.LightningModule):
@@ -35,8 +36,8 @@ class RelativeDephModule(pl.LightningModule):
         return [optimizer], [scheduler]
 
     def forward(self, x):
-        d1,d6,d7,d8,d9 = self.model(x)
-        return d1,d6,d7,d8,d9
+        fine_details, ord_pred = self.model(x)
+        return fine_details, ord_pred
 
     def train_dataloader(self):
         return self.train_loader
@@ -47,11 +48,17 @@ class RelativeDephModule(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
-        d1,d6,d7,d8,d9 = self(x)
+        
+        fine_details, ord_pred = self(x)
         # TODO recombine
         # compute final depth image
-        final_depth = compute_final_depth()
-        loss = self.criterion(final_depth, y)
+
+        final_depth = self.compute_final_depth(fine_details, y)
+        ord_y = self.compute_ordinal_target(ord_pred, y)
+        ord_loss = l.Ordinal_Loss().calc(ord_pred, ord_y)
+
+        loss = self.criterion(final_depth, y) #+ord_loss
+
         return self.metric_logger.log_train(final_depth, y, loss)
 
     def validation_step(self, batch, batch_idx):
@@ -59,3 +66,18 @@ class RelativeDephModule(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
         return self.metric_logger.log_val(y_hat, y)
+    
+    def compute_final_depth(self, fine_detail_list, target):
+        component_target = cp.decompose_depth_map([], target, 7)[::-1]
+        optimal_candidates = cp.optimize_components(self.model.weight_layer, 0.001, fine_detail_list, component_target)
+        #returned candidates are recombined to final depth map
+        #cp.debug_print_list(optimal_candidates)
+        final = cp.recombination(optimal_candidates)
+        return final
+    
+    def compute_ordinal_target(self, ord_pred, target):
+        #make the ordinal target
+        target = cp.resize(target, ord_pred.shape[2])
+        #transform with ordinal regression
+        ord_target = cp.DornOrdinalRegression(target)
+        return ord_target
