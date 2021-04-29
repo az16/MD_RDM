@@ -16,8 +16,8 @@ This is a pytorch implementation of 'Monocular Depth Estimation Using Relative D
 # Finalizing Output
 - [x] Depth Map Decomposition (tested)
 - [x] Weight optimization for fine detail maps
-- [ ] Decomposition of ground truth while propagating input through network
-- [ ] optimization of dorn decoder components 
+- [x] Decomposition of ground truth while propagating input through network
+- [x] optimization of dorn decoder components 
 - [x] Optimal Map Reconstruction (tested on its own)
 # Training and Data
 - [x] Training cycle
