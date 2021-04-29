@@ -116,3 +116,80 @@ def save_image(img_merge, filename):
     img_merge = Image.fromarray(img_merge.astype('uint8'))
     img_merge.save(filename)
 
+
+def get_depth_sid(args, labels):
+    if args.dataset == 'kitti':
+        min = 0.001
+        max = 80.0
+        K = 71.0
+    elif args.dataset == 'nyu':
+        min = 0.02
+        max = 10.0
+        K = 68.0
+    elif args.dataset == 'floorplan3d':
+        min = 0.0552
+        max = 10.0
+        K = 68.0
+    elif args.dataset == 'Structured3D':
+        min = 0.02
+        max = 10.0
+        K = 68.0
+    else:
+        print('No Dataset named as ', args.dataset)
+
+    if torch.cuda.is_available():
+        alpha_ = torch.tensor(min).cuda()
+        beta_ = torch.tensor(max).cuda()
+        K_ = torch.tensor(K).cuda()
+    else:
+        alpha_ = torch.tensor(min)
+        beta_ = torch.tensor(max)
+        K_ = torch.tensor(K)
+
+    # print('label size:', labels.size())
+    if not alpha_ == 0.0:
+        depth = torch.exp(torch.log(alpha_) + torch.log(beta_ / alpha_) * labels / K_)
+    else:
+        depth = torch.exp(torch.log(beta_) * labels / K_)
+    # depth = alpha_ * (beta_ / alpha_) ** (labels.float() / K_)
+    # print(depth.size())
+    return depth.float()
+
+
+def get_labels_sid(args, depth):
+    if args.dataset == 'kitti':
+        alpha = 0.001
+        beta = 80.0
+        K = 71.0
+    elif args.dataset == 'nyu':
+        alpha = 0.02
+        beta = 10.0
+        K = 68.0
+    elif args.dataset == 'floorplan3d':
+        alpha = 0.0552
+        beta = 10.0
+        K = 68.0
+    elif args.dataset == 'Structured3D':
+        alpha = 0.02
+        beta = 10.0
+        K = 68
+    else:
+        print('No Dataset named as ', args.dataset)
+
+    alpha = torch.tensor(alpha)
+    beta = torch.tensor(beta)
+    K = torch.tensor(K)
+
+    if torch.cuda.is_available():
+        alpha = alpha.cuda()
+        beta = beta.cuda()
+        K = K.cuda()
+    if not alpha == 0.0:
+        labels = K * torch.log(depth / alpha) / torch.log(beta / alpha)
+    else:
+        labels = K * torch.log(depth) / torch.log(beta)
+    if torch.cuda.is_available():
+        labels = labels.cuda()
+    return labels.int()
+
+

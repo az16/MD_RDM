@@ -3,6 +3,7 @@ import pytorch_lightning as pl
 from metrics import MetricLogger
 from network.RDM_Net import DepthEstimationNet
 from network import computations as cp
+import utils as u
 import loss as l
 from dataloaders.nyu_dataloader import NYUDataset
 
@@ -53,7 +54,7 @@ class RelativeDephModule(pl.LightningModule):
         # TODO recombine
         # compute final depth image
 
-        final_depth = self.compute_final_depth(fine_details, y)
+        final_depth = self.compute_final_depth(fine_details, y, lr=0.001)
         ord_y = self.compute_ordinal_target(ord_pred, y)
         ord_loss = l.Ordinal_Loss().calc(ord_pred, ord_y)
 
@@ -64,20 +65,26 @@ class RelativeDephModule(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
-        y_hat = self(x)
+
+        fine_details, y_hat_ord = self(x)
+
+        y_hat = self.compute_final_depth(fine_details, y, lr=0.001)
+        ord_y = self.compute_ordinal_target(y_hat_ord, y)
+
         return self.metric_logger.log_val(y_hat, y)
     
-    def compute_final_depth(self, fine_detail_list, target):
+    def compute_final_depth(self, fine_detail_list, target, lr):
+        #decompose target map
         component_target = cp.decompose_depth_map([], target, 7)[::-1]
-        optimal_candidates = cp.optimize_components(self.model.weight_layer, 0.001, fine_detail_list, component_target)
-        #returned candidates are recombined to final depth map
-        #cp.debug_print_list(optimal_candidates)
+        #optimize weight layer
+        optimal_candidates = cp.optimize_components(self.model.weight_layer, lr, fine_detail_list, component_target)
+        #returned optimal candidates are recombined to final depth map
         final = cp.recombination(optimal_candidates)
         return final
     
     def compute_ordinal_target(self, ord_pred, target):
-        #make the ordinal target
+        #resize target to correct size
         target = cp.resize(target, ord_pred.shape[2])
-        #transform with ordinal regression
-        ord_target = cp.DornOrdinalRegression(target)
+        #transform with ordinal regression so it can be compared
+        ord_target = u.get_depth_sid(target)
         return ord_target
