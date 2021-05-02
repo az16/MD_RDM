@@ -23,9 +23,6 @@ import torch.nn as nn
 from network import computations as cp
 
 import numpy as np
-
-from network import FCRN
-
 # os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # use single GPU
 
 args = utils.parse_command()

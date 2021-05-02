@@ -58,7 +58,7 @@ class RelativeDephModule(pl.LightningModule):
         ord_y = self.compute_ordinal_target(ord_pred, y)
         ord_loss = l.Ordinal_Loss().calc(ord_pred, ord_y)
 
-        loss = self.criterion(final_depth, y) #+ord_loss
+        loss = self.criterion(final_depth, y) +ord_loss
 
         return self.metric_logger.log_train(final_depth, y, loss)
 
@@ -86,5 +86,5 @@ class RelativeDephModule(pl.LightningModule):
         #resize target to correct size
         target = cp.resize(target, ord_pred.shape[2])
         #transform with ordinal regression so it can be compared
-        ord_target = u.get_depth_sid(target)
+        ord_target = u.get_depth_sid("nyu", target)
         return ord_target

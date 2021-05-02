@@ -4,7 +4,7 @@
 # @Email   : wangxin_buaa@163.com
 
 
-import torch
+import torch 
 import math
 import numpy as np
 import pytorch_lightning as pl
@@ -81,7 +81,7 @@ class Delta(Metric):
 
 class Log10(Metric):
     def log10(self, x):
-        return torch.log(x) / torch.log(torch.tensor(10.0))
+        return torch.log(x) / torch.log(torch.Tensor(10.0))
     def forward(self, pred, target):
         return (self.log10(pred) - self.log10(target)).abs().mean()
 
