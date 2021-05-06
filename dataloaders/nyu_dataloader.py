@@ -95,7 +95,7 @@ class NYUDataset(BaseDataset):
     def __init__(self, path, output_size=(228, 304), resize=250, n_images=-1, dataset_type=None, *args, **kwargs):
         super(NYUDataset, self).__init__(*args, **kwargs)
         self.dataset_type = dataset_type
-        assert dataset_type in DATASET_TYPES, "unknow NYU data set: [{}] available: []".format(dataset_type, DATASET_TYPES)
+        assert dataset_type in DATASET_TYPES, "unknown NYU data set: [{0}] available: [{1}]".format(dataset_type, DATASET_TYPES)
         assert not ("corrected" in dataset_type and self.split == "train"), "Cannot use corrected depth during training!!"
         self.output_size = output_size
         self.resize = resize

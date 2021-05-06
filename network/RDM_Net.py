@@ -1,10 +1,9 @@
 import torch
 import torch.nn as nn
 import torchvision
-#import network.transforms as t
 import numpy as np
 import scipy.io
-import computations as cp
+import network.computations as cp
 from PIL import Image
 
 class BaseModel(nn.Module):
