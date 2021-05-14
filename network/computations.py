@@ -1,5 +1,6 @@
 import numpy as np 
-import torch 
+import torch
+from torch import autograd 
 import torch.nn as nn
 import math
 from scipy.sparse import linalg  as sp
@@ -19,7 +20,7 @@ def principal_eigen(p_3):
     returns p_3 with approximated values
 
     """
-    result = torch.lobpcg(p_3, k=1, largest=True)[1]
+    result = torch.lobpcg(p_3, k=1)[1]
     result = torch.abs(result)
     for i in range(result.shape[0]):
         #print(len(result[i].shape))
@@ -42,8 +43,8 @@ def alternating_least_squares(sparse_m, n, limit = 100, debug=False):
     #go through batch and do als for each comparison matrix
     for b in range(B):
         sparse = sparse_m[b]
-        p = torch.rand((2**(2*n), 1)).double()
-        q = torch.rand((2**(2*n-2),1)).double()
+        p = torch.rand((2**(2*n), 1))
+        q = torch.rand((2**(2*n-2),1))
         
         rmse_record = []
 

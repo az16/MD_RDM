@@ -118,33 +118,33 @@ def save_image(img_merge, filename):
 
 
 def get_depth_sid(args, labels):
-    if args.dataset == 'kitti':
+    if args == 'kitti':
         min = 0.001
         max = 80.0
         K = 71.0
-    elif args.dataset == 'nyu':
+    elif args == 'nyu':
         min = 0.02
         max = 10.0
         K = 68.0
-    elif args.dataset == 'floorplan3d':
+    elif args == 'floorplan3d':
         min = 0.0552
         max = 10.0
         K = 68.0
-    elif args.dataset == 'Structured3D':
+    elif args == 'Structured3D':
         min = 0.02
         max = 10.0
         K = 68.0
     else:
         print('No Dataset named as ', args.dataset)
 
-    if torch.cuda.is_available():
-        alpha_ = torch.Tensor(min).cuda()
-        beta_ = torch.Tensor(max).cuda()
-        K_ = torch.Tensor(K).cuda()
-    else:
-        alpha_ = torch.Tensor(min)
-        beta_ = torch.Tensor(max)
-        K_ = torch.Tensor(K)
+    # if torch.cuda.is_available():
+    #     alpha_ = torch.tensor(min).cuda()
+    #     beta_ = torch.tensor(max).cuda()
+    #     K_ = torch.tensor(K).cuda()
+    # else:
+    alpha_ = torch.tensor(min)
+    beta_ = torch.tensor(max)
+    K_ = torch.tensor(K)
 
     # print('label size:', labels.size())
     if not alpha_ == 0.0:
@@ -157,28 +157,28 @@ def get_depth_sid(args, labels):
 
 
 def get_labels_sid(args, depth):
-    if args.dataset == 'kitti':
+    if args == 'kitti':
         alpha = 0.001
         beta = 80.0
         K = 71.0
-    elif args.dataset == 'nyu':
+    elif args == 'nyu':
         alpha = 0.02
         beta = 10.0
         K = 68.0
-    elif args.dataset == 'floorplan3d':
+    elif args == 'floorplan3d':
         alpha = 0.0552
         beta = 10.0
         K = 68.0
-    elif args.dataset == 'Structured3D':
+    elif args == 'Structured3D':
         alpha = 0.02
         beta = 10.0
         K = 68
     else:
         print('No Dataset named as ', args.dataset)
 
-    alpha = torch.Tensor(alpha)
-    beta = torch.Tensor(beta)
-    K = torch.Tensor(K)
+    alpha = torch.tensor(alpha)
+    beta = torch.tensor(beta)
+    K = torch.tensor(K)
 
     if torch.cuda.is_available():
         alpha = alpha.cuda()

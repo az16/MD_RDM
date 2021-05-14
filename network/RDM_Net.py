@@ -42,17 +42,17 @@ class DepthEstimationNet(BaseModel):
         #Decoders 1-10
         #First 5 estimate regular depth maps using ordinal loss and SID algorithm
         self.d_1 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=1, quant=self.quantizers)
-        self.d_2 = Decoder(in_channels=1056, num_wsm_layers=1, DORN=True, id=2, quant=self.quantizers)
-        self.d_3 = Decoder(in_channels=1056, num_wsm_layers=2, DORN=True, id=3, quant=self.quantizers)
-        self.d_4 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=True, id=4, quant=self.quantizers)
-        self.d_5 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=True, id=5, quant=self.quantizers)
+        # self.d_2 = Decoder(in_channels=1056, num_wsm_layers=1, DORN=True, id=2, quant=self.quantizers)
+        # self.d_3 = Decoder(in_channels=1056, num_wsm_layers=2, DORN=True, id=3, quant=self.quantizers)
+        # self.d_4 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=True, id=4, quant=self.quantizers)
+        # self.d_5 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=True, id=5, quant=self.quantizers)
         
         #Remaining 5 estimate relative depth maps using ALS
         self.d_6 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=6, quant=self.quantizers)
         self.d_7 = Decoder(in_channels=1056, num_wsm_layers=1, DORN=False, id=7, quant=self.quantizers)
         self.d_8 = Decoder(in_channels=1056, num_wsm_layers=2, DORN=False, id=8, quant=self.quantizers)
         self.d_9 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=False, id=9, quant=self.quantizers)
-        self.d_10 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=False, id=10, quant=self.quantizers)
+        # self.d_10 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=False, id=10, quant=self.quantizers)
 
         self.weight_layer = Weights([1,5,5,5,3,2,1,0])
 
@@ -245,16 +245,27 @@ class Ordinal_Layer(nn.Module):
         if id == 3:
             for i in range(40):
                 labels[:,:,:,i] = (relative_depths >= self.quant.depth_ratio_008_008_quant[i][0])
-            indices = torch.flatten(torch.sum(labels,3)).cpu().detach().numpy().astype(int)
-            return  torch.from_numpy(np.reshape(self.quant.depth_ratio_008_008_quant_inv[indices], (labels.shape[0], labels.shape[1], labels.shape[2])))
+
+            indices = torch.flatten(torch.sum(labels,3))
+            relative_depths = torch.flatten(relative_depths)
+
+            for i in range(relative_depths.shape[0]):
+                relative_depths[i] = self.quant.depth_ratio_008_008_quant_inv[int(indices[i])][0]
+
+            return  relative_depths.view(N, C, W)
+
         elif id > 3:
             q, inv = self.quant.get_with_id(id)
 
             for i in range(40):
                 labels[:,:,:,i] = (relative_depths >= q[i][0])
 
-            indices = torch.flatten(torch.sum(labels,3)).cpu().detach().numpy().astype(int)
-            return torch.from_numpy(np.reshape(inv[indices], (labels.shape[0], labels.shape[1], labels.shape[2])))
+            indices = torch.flatten(torch.sum(labels,3))
+            relative_depths = torch.flatten(relative_depths)
+            for i in range(relative_depths.shape[0]):
+                relative_depths[i] = inv[int(indices[i])][0]
+            return relative_depths.view(N, C, W)
+
         
     def DornOrdinalRegression(self, x):
         """
@@ -471,25 +482,30 @@ def debug(container, id):
 if __name__ == "__main__":
     #inputs
     ground_truth = torch.randn((4,1,128,128))
-    test_input = torch.randn((4,3,226,226))
+    test_input = torch.randn((4,1,8,8))
+    test_input2 = torch.randn((4,1,16,16))
+    ord = Ordinal_Layer(6, False, Quantization())
+    result = ord.sparse_comparison_id(test_input2, test_input)
+    #print(result.shape)
+    #print(result)
     #optimization params
-    lr = 0.001
-    weight_layer = Weights([1,5,5,5,3,2,1,0])
-    #get network prediction
-    network = DepthEstimationNet()
-    d1, d6, d7, d8, d9 = network(test_input)
-    #get fine detail candidates and ground truth candidates
-    y_hat = cp.relative_fine_detail_matrix([d1, d6, d7, d8, d9])
-    y = cp.decompose_depth_map([], ground_truth, 7)[::-1]
-    #optimize weight layer 
-    optimal_candidates = cp.optimize_components(weight_layer, lr, y_hat, y)
-    #returned candidates are recombined to final depth map
-    #cp.debug_print_list(optimal_candidates)
-    result = cp.recombination(optimal_candidates)
-    #check the result
-    print("\nFound final output nan values: {0}".format(cp.find_nans(result)))
-    print("Final output size: {0}".format(result.shape))
-    print(result)
+    # lr = 0.001
+    # weight_layer = Weights([1,5,5,5,3,2,1,0])
+    # #get network prediction
+    # network = DepthEstimationNet()
+    # d1, d6, d7, d8, d9 = network(test_input)
+    # #get fine detail candidates and ground truth candidates
+    # y_hat = cp.relative_fine_detail_matrix([d1, d6, d7, d8, d9])
+    # y = cp.decompose_depth_map([], ground_truth, 7)[::-1]
+    # #optimize weight layer 
+    # optimal_candidates = cp.optimize_components(weight_layer, lr, y_hat, y)
+    # #returned candidates are recombined to final depth map
+    # #cp.debug_print_list(optimal_candidates)
+    # result = cp.recombination(optimal_candidates)
+    # #check the result
+    # print("\nFound final output nan values: {0}".format(cp.find_nans(result)))
+    # print("Final output size: {0}".format(result.shape))
+    # print(result)
 
 
     

@@ -153,32 +153,32 @@ class NYUDataset(BaseDataset):
 
     def mat_loader(self, index):
         data = h5py.File(self.nyu_depth_v2_labeled_file_corrected, "r")  
-        mask = data['masks'][index]
-        if self.use_corrected_depth:
-            depth = data['depths_corrected'][index]
-            if np.max(depth) == 0: depth = data['depths'][index]
-        else:
-            depth = data['depths'][index]
+        # mask = data['masks'][index]
+        # if self.use_corrected_depth:
+        #     depth = data['depths_corrected'][index]
+        #     if np.max(depth) == 0: depth = data['depths'][index]
+        # else:
+        depth = data['depths'][index]
                
         rgb = data['images'][index]     
         rgb = np.transpose(rgb, (2, 1, 0))
         depth = np.transpose(depth, (1,0))
-        mask = np.transpose(mask, (1,0))
-        mask = mask.astype(np.bool)
+        # mask = np.transpose(mask, (1,0))
+        # mask = mask.astype(np.bool)
 
-        if self.mirror_pixel_only:
-            depth[~mask] = 0.0
+        # if self.mirror_pixel_only:
+        #     depth[~mask] = 0.0
 
-        labels = data['labels'][index]
-        labels = np.transpose(labels, (1,0))
-        labels_40 = self.mapping40[labels]
+        # labels = data['labels'][index]
+        # labels = np.transpose(labels, (1,0))
+        # labels_40 = self.mapping40[labels]
 
-        if 'no_mirror' in self.dataset_type:
-            mask = labels_40 == 19  # Mirrors 
-            depth[mask] = 0
-        if 'no_window' in self.dataset_type:
-            mask = labels_40 == 9 # Windows
-            depth[mask] = 0
+        # if 'no_mirror' in self.dataset_type:
+        #     mask = labels_40 == 19  # Mirrors 
+        #     depth[mask] = 0
+        # if 'no_window' in self.dataset_type:
+        #     mask = labels_40 == 9 # Windows
+        #     depth[mask] = 0
         return rgb, depth
 
     def depth_correct_writer(self, index):

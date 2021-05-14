@@ -1,3 +1,4 @@
+from numpy.core.fromnumeric import resize
 import torch
 import pytorch_lightning as pl
 from metrics import MetricLogger
@@ -9,7 +10,7 @@ from dataloaders.nyu_dataloader import NYUDataset
 
 class RelativeDephModule(pl.LightningModule):
     def __init__(self, path, batch_size, learning_rate, worker, metrics, *args, **kwargs):
-        super().__init__()    
+        super().__init__()
         self.save_hyperparameters()
         self.metric_logger = MetricLogger(metrics=metrics, module=self)
         self.train_loader = torch.utils.data.DataLoader(NYUDataset(path, dataset_type='labeled', split="train", output_size=(226, 226)),
@@ -49,27 +50,26 @@ class RelativeDephModule(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
-        
+        y = cp.resize(y,128)
         fine_details, ord_pred = self(x)
-        # TODO recombine
-        # compute final depth image
 
         final_depth = self.compute_final_depth(fine_details, y, lr=0.001)
         ord_y = self.compute_ordinal_target(ord_pred, y)
         ord_loss = l.Ordinal_Loss().calc(ord_pred, ord_y)
 
-        loss = self.criterion(final_depth, y) +ord_loss
+        loss = self.criterion(final_depth, y) + ord_loss
 
         return self.metric_logger.log_train(final_depth, y, loss)
 
     def validation_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
+        y = cp.resize(y,128)
 
         fine_details, y_hat_ord = self(x)
 
         y_hat = self.compute_final_depth(fine_details, y, lr=0.001)
-        ord_y = self.compute_ordinal_target(y_hat_ord, y)
+        #ord_y = self.compute_ordinal_target(y_hat_ord, y)
 
         return self.metric_logger.log_val(y_hat, y)
     
