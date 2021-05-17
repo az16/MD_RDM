@@ -53,11 +53,11 @@ class RelativeDephModule(pl.LightningModule):
         y = cp.resize(y,128)
         fine_details, ord_pred = self(x)
 
-        final_depth = self.compute_final_depth(fine_details, y, lr=0.001)
+        final_depth, fine_detail_loss = self.compute_final_depth(fine_details, y, lr=0.001)
         ord_y = self.compute_ordinal_target(ord_pred, y)
         ord_loss = l.Ordinal_Loss().calc(ord_pred, ord_y)
 
-        loss = self.criterion(final_depth, y) + ord_loss
+        loss = self.criterion(final_depth, y) + ord_loss + fine_detail_loss
 
         return self.metric_logger.log_train(final_depth, y, loss)
 
@@ -77,10 +77,10 @@ class RelativeDephModule(pl.LightningModule):
         #decompose target map
         component_target = cp.decompose_depth_map([], target, 7)[::-1]
         #optimize weight layer
-        optimal_candidates = cp.optimize_components(self.model.weight_layer, lr, fine_detail_list, component_target)
+        loss = cp.optimize_components(self.model.weight_layer, lr, fine_detail_list, component_target)
         #returned optimal candidates are recombined to final depth map
-        final = cp.recombination(optimal_candidates)
-        return final
+        final = cp.recombination(fine_detail_list)
+        return final,loss
     
     def compute_ordinal_target(self, ord_pred, target):
         #resize target to correct size

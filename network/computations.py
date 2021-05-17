@@ -329,18 +329,18 @@ def optimize_components_old(weights, yhat, y, lr=0.001):
     
     return pred
 
-def optimize_components(weights, lr, yhat, y):
+def optimize_components(weights, learning_rate, yhat, y):
     w = weights.weight_list
     #debug_print_list(w)
     pred = make_pred(w, yhat)
     loss = squared_err(pred,y)
 
-    optimizer = torch.optim.SGD(params=w,lr=lr)
-    optimizer.zero_grad()
-    loss = [x.backward() for x in loss]
-    optimizer.step()
+    #optimizer = torch.optim.SGD(params=w,lr=learning_rate)
+    #optimizer.zero_grad()
+    # loss = [x.backward() for x in loss]
+    # optimizer.step()
 
-    return pred
+    return torch.sum(torch.as_tensor(loss))
 
 def make_pred(w, A):
     for i in range(len(A)):
