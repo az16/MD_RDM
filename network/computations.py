@@ -1,13 +1,7 @@
-import numpy as np 
 import torch
-from torch import autograd 
 import torch.nn as nn
 import math
-from scipy.sparse import linalg  as sp
-from scipy import sparse as s
-from statistics import geometric_mean as gm
-from itertools import zip_longest
-import matplotlib.pyplot as plt
+
 
 def principal_eigen(p_3):
     """
@@ -20,12 +14,14 @@ def principal_eigen(p_3):
     returns p_3 with approximated values
 
     """
-    result = torch.lobpcg(p_3, k=1)[1]
-    result = torch.abs(result)
-    for i in range(result.shape[0]):
+    A = torch.lobpcg(p_3, k=1)[1]
+    A = torch.abs(A)
+    B = A.clone()
+
+    for i in range(A.shape[0]):
         #print(len(result[i].shape))
-        result[i] = result[i]/geometric_mean(result[i], result.shape[1], result.shape[2])
-    return result.view(result.shape[0],1,8,8)
+        B[i] = A[i]/geometric_mean(A[i], A.shape[1], A.shape[2])
+    return B.view(B.shape[0],1,8,8)
 
 def alternating_least_squares(sparse_m, n, limit = 100, debug=False):
     """

@@ -66,9 +66,9 @@ class RelativeDephModule(pl.LightningModule):
         x, y = batch
         y = cp.resize(y,128)
 
-        fine_details, y_hat_ord = self(x)
+        fine_details, _ = self(x)
 
-        y_hat = self.compute_final_depth(fine_details, y, lr=0.001)
+        y_hat, _ = self.compute_final_depth(fine_details, y, lr=0.001)
         #ord_y = self.compute_ordinal_target(y_hat_ord, y)
 
         return self.metric_logger.log_val(y_hat, y)
