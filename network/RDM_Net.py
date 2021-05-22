@@ -58,6 +58,7 @@ class DepthEstimationNet(BaseModel):
 
     def forward(self, x):
         #encoder propagation
+        print("Encoder input: {0}".format(x))
         x = self.encoder.conv_e1(x)
         x = self.encoder.max_e1(x)
         x = self.encoder.dense_e2(x)
@@ -72,13 +73,13 @@ class DepthEstimationNet(BaseModel):
 
         #according to the authors, optimal performance is reached with decoders
         #1,6,7,8,9
-
+        print("Encoder output: {0}".format(x))
         x_d1 = self.d_1(x)#regular
         x_d6 = self.d_6(x)#relative
         x_d7 = self.d_7(x)#relative
         x_d8 = self.d_8(x)#relative
         x_d9 = self.d_9(x)#relative
-        
+        print("D1 output before decomposition: {0}".format(x_d1))
         #get fine-detail maps for each depth map
         f_d1 = cp.decompose_depth_map([], x_d1, 3)[::-1]
         f_d6 = cp.decompose_depth_map([], x_d6, 3, relative_map=True)[::-1]

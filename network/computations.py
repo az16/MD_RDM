@@ -21,6 +21,7 @@ def principal_eigen(p_3):
     for i in range(A.shape[0]):
         #print(len(result[i].shape))
         B[i] = A[i]/geometric_mean(A[i], A.shape[1], A.shape[2])
+    #print("Principal Eigenvector reconstruction has nans: {0}".format(torch.isnan(B)))
     return B.view(B.shape[0],1,8,8)
 
 def alternating_least_squares(sparse_m, n, limit = 100, debug=False):
@@ -231,6 +232,7 @@ def decompose_depth_map(container, dn, n, relative_map=False):
     """
     if n == 0:
         if not relative_map:
+            #print("D_0: {0}".format(dn))
             container.append(dn)#append d_0
         print("\nDecomposed into {0} fine detail maps.".format(len(container)))
         print("NaN values found? -> {0}".format(find_nans(container)))
@@ -238,6 +240,7 @@ def decompose_depth_map(container, dn, n, relative_map=False):
     elif n >= 1:
         dn_1 = resize(dn, 2**(n-1))
         fn = dn / upsample(dn_1)
+        #print("F_{0}: {1}".format(n, dn))
         container.append(fn)
         return decompose_depth_map(container, dn_1, n-1, relative_map)
 
@@ -325,18 +328,17 @@ def optimize_components_old(weights, yhat, y, lr=0.001):
     
     return pred
 
-def optimize_components(weights, learning_rate, yhat, y):
+def optimize_components(weights, yhat, y):
     w = weights.weight_list
     #debug_print_list(w)
     pred = make_pred(w, yhat)
     loss = squared_err(pred,y)
-
     #optimizer = torch.optim.SGD(params=w,lr=learning_rate)
     #optimizer.zero_grad()
     # loss = [x.backward() for x in loss]
     # optimizer.step()
 
-    return torch.sum(torch.as_tensor(loss))
+    return pred, torch.sum(torch.as_tensor(loss))
 
 def make_pred(w, A):
     for i in range(len(A)):
