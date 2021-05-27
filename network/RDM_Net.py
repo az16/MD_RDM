@@ -58,39 +58,39 @@ class DepthEstimationNet(BaseModel):
 
     def forward(self, x):
         #encoder propagation
-        print("Encoder input: {0}".format(x))
+        ## print("Encoder input: {0}".format(x))
         x = self.encoder.conv_e1(x)
-        print("Encoder layer 1: {0}".format(x))
-        print("Encoder layer 1 weights: {0}".format(self.encoder.conv_e1.weight))
+        # print("Encoder layer 1: {0}".format(x))
+        # print("Encoder layer 1 weights: {0}".format(self.encoder.conv_e1.weight))
         x = self.encoder.max_e1(x)
-        #print("Encoder layer 2: {0}".format(x))
+        ## print("Encoder layer 2: {0}".format(x))
         x = self.encoder.dense_e2(x)
-        #print("Encoder layer 3: {0}".format(x))
+        ## print("Encoder layer 3: {0}".format(x))
         x = self.encoder.pad_br(x)
-        #print("Encoder layer 4: {0}".format(x))
+        ## print("Encoder layer 4: {0}".format(x))
         x = self.encoder.trans_e2(x)
-        #print("Encoder layer 5: {0}".format(x))
+        ## print("Encoder layer 5: {0}".format(x))
         x = self.encoder.dense_e3(x)
-        #print("Encoder layer 6: {0}".format(x))
+        ## print("Encoder layer 6: {0}".format(x))
         x = self.encoder.pad_br(x)
-        #print("Encoder layer 7: {0}".format(x))
+        ## print("Encoder layer 7: {0}".format(x))
         x = self.encoder.trans_e3(x)
-        #print("Encoder layer 8: {0}".format(x))
+        ## print("Encoder layer 8: {0}".format(x))
         x = self.encoder.dense_e4(x)
-        #print("Encoder layer 9: {0}".format(x))
+        ## print("Encoder layer 9: {0}".format(x))
         x = self.encoder.pad_br(x)
-        #print("Encoder layer 10: {0}".format(x))
+        ## print("Encoder layer 10: {0}".format(x))
         x = self.encoder.trans_e4(x)
 
         #according to the authors, optimal performance is reached with decoders
         #1,6,7,8,9
-        #print("Encoder output: {0}".format(x))
+        ## print("Encoder output: {0}".format(x))
         x_d1 = self.d_1(x)#regular
         x_d6 = self.d_6(x)#relative
         x_d7 = self.d_7(x)#relative
         x_d8 = self.d_8(x)#relative
         x_d9 = self.d_9(x)#relative
-        print("D1 output before decomposition: {0}".format(x_d1))
+        # print("D1 output before decomposition: {0}".format(x_d1))
         #get fine-detail maps for each depth map
         f_d1 = cp.decompose_depth_map([], x_d1, 3)[::-1]
         f_d6 = cp.decompose_depth_map([], x_d6, 3, relative_map=True)[::-1]
@@ -117,9 +117,9 @@ class Decoder(nn.Module):
     def forward(self, x):
 
         x = self.dense_layer(x)
-        #print(x.shape)
+        ## print(x.shape)
         x = self.wsm_block(x)
-        #print(x.shape)
+        ## print(x.shape)
         if self.id > 5:
             x = self.conv1(x)#make feature map have only one channel
 
@@ -166,11 +166,11 @@ class WSMLayer(nn.Module):
         self.input_adjustment_layer = nn.Conv2d(raw, in_channels, 1)        
 
     def forward(self, x):
-        # print(self.id)
-        # print(x.shape)
+        # # print(self.id)
+        # # print(x.shape)
         x = self.input_adjustment_layer(x)
         out1 = self.deconv1(x)
-        # print(out1.shape)
+        # # print(out1.shape)
         #first conv block
         out1_1 = self.conv1_1(out1)
         out1_2 = self.conv1_2(out1)
@@ -194,15 +194,15 @@ class WSMLayer(nn.Module):
             completion_horizontal = torch.cat((completion_horizontal, out_wsm_3xh),2)
             i=+1
         """
-        print(out1_1.shape)
-        print(out2_1.shape)
-        print(out2_2.shape)
-        print(completion_vertical.shape)
-        print(completion_horizontal.shape)
+        # print(out1_1.shape)
+        # print(out2_1.shape)
+        # print(out2_2.shape)
+        # print(completion_vertical.shape)
+        # print(completion_horizontal.shape)
         """
         #concatenate output of wsm layers and convolution layers
         cat = torch.cat((out1_1, out2_1, out2_2, completion_vertical, completion_horizontal),1)
-        #print(cat.shape)
+        ## print(cat.shape)
 
         return cat
 class Ordinal_Layer(nn.Module):
@@ -224,7 +224,7 @@ class Ordinal_Layer(nn.Module):
 
         depth_labels = torch.zeros(B, size, size, 40)
         relative_depth_map = self.LloydQuantization(depth_labels, sparse_m)
-        #print(relative_depth_map.shape)
+        ## print(relative_depth_map.shape)
         return relative_depth_map
 
     def sparse_comparison_id(self, dn, dn_1):
@@ -248,7 +248,7 @@ class Ordinal_Layer(nn.Module):
         sparse_m = sparse_m.view(B,H*W,H_1*W_1)
         depth_labels = torch.zeros(B,H*W,H_1*W_1, 40)
         relative_depth_map = self.LloydQuantization(depth_labels, sparse_m, id=self.id)
-        #print(relative_depth_map.shape)
+        ## print(relative_depth_map.shape)
         return relative_depth_map
 
     def LloydQuantization(self, labels, relative_depths,  id=3):
@@ -286,7 +286,7 @@ class Ordinal_Layer(nn.Module):
                  decode_label is the ordinal labels for each position of Image I
         """
         N, C, H, W = x.size()
-        #print("regression input tensor size: "+str(x.size()))
+        ## print("regression input tensor size: "+str(x.size()))
         ord_num = C // 2
         """
         replace iter with matrix operation
@@ -309,8 +309,8 @@ class Ordinal_Layer(nn.Module):
 
         decode_c = torch.sum((ord_c1 > 0.5), dim=1).view(-1, 1, H, W)
         # decode_c = torch.sum(ord_c1, dim=1).view(-1, 1, H, W)
-        print(decode_c.shape)
-        print("D1 done.")
+        # print(decode_c.shape)
+        # print("D1 done.")
         return decode_c#, ord_c1
 
     def forward(self, x):
@@ -322,8 +322,8 @@ class Ordinal_Layer(nn.Module):
                 #use regular comparison matrix
                 x = self.sparse_comparison_v1(x)
                 x = cp.principal_eigen(x)
-                print(x.shape)
-                print("D6 done.")
+                # print(x.shape)
+                # print("D6 done.")
                 return x 
 
             elif self.id == 4:
@@ -332,8 +332,8 @@ class Ordinal_Layer(nn.Module):
                 dn_1 = cp.resize(dn, self.quant.get_size_id(self.id-1))
                 x = self.sparse_comparison_id(dn, dn_1)
                 filled_map = cp.alternating_least_squares(sparse_m=x, n=4, limit=100)
-                print(filled_map.shape)
-                print("D7 done.")
+                # print(filled_map.shape)
+                # print("D7 done.")
                 return filled_map
 
             elif self.id > 4:
@@ -345,8 +345,8 @@ class Ordinal_Layer(nn.Module):
                 sparse_pages = [self.sparse_comparison_id(z[0], z[1]) for z in zipped]
                 als_filled_pages = [cp.alternating_least_squares(sparse, n=4, limit=100) for sparse in sparse_pages]
                 full_map = cp.reconstruct(als_filled_pages)
-                print(full_map.shape)
-                print("D{0} done.".format(self.id+3))
+                # print(full_map.shape)
+                # print("D{0} done.".format(self.id+3))
                 return full_map            
 class Quantization():
     def __init__(self):
@@ -491,55 +491,7 @@ def debug(container, id):
     print("Nans -> {0}".format(cp.find_nans(container)))
     print("\n")
 
-if __name__ == "__main__":
-    #inputs
-    ground_truth = torch.randn((4,1,128,128))
-    x = torch.randn((4, 3, 226, 226))
-    # test_input = torch.randn((4,1,8,8))
-    # test_input2 = torch.randn((4,1,16,16))
-    # ord = Ordinal_Layer(6, False, Quantization())
-    # result = ord.sparse_comparison_id(test_input2, test_input)
-    #print(result.shape)
-    #print(result)
-    #optimization params
-    # lr = 0.001
-    # weight_layer = Weights([1,5,5,5,3,2,1,0])
-    # #get network prediction
-    # network = DepthEstimationNet()
-    # d1, d6, d7, d8, d9 = network(test_input)
-    # #get fine detail candidates and ground truth candidates
-    # y_hat = cp.relative_fine_detail_matrix([d1, d6, d7, d8, d9])
-    # y = cp.decompose_depth_map([], ground_truth, 7)[::-1]
-    # #optimize weight layer 
-    # optimal_candidates = cp.optimize_components(weight_layer, lr, y_hat, y)
-    # #returned candidates are recombined to final depth map
-    # #cp.debug_print_list(optimal_candidates)
-    # result = cp.recombination(optimal_candidates)
-    # #check the result
-    # print("\nFound final output nan values: {0}".format(cp.find_nans(result)))
-    # print("Final output size: {0}".format(result.shape))
-    # print(result)
 
-    encoder = _make_encoder_()
-    x = encoder.conv_e1(x)
-    print(x.shape) #113
-    x = encoder.max_e1(x)
-    print(x.shape) #57
-    x = encoder.dense_e2(x)
-    x = encoder.pad_br(x)
-    x = encoder.trans_e2(x)
-    print(x.shape) #29
-    x = encoder.dense_e3(x)
-    x = encoder.pad_br(x)
-    x = encoder.trans_e3(x)
-    #x = encoder.pad_br(x)
-    print(x.shape)
-    #x =self.encoder.pad_tl(x)
-    x = encoder.dense_e4(x)
-    x = encoder.pad_br(x)
-    x = encoder.trans_e4(x)
-    #x = encoder.pad_br(x)
-    print(x.shape)
 
 
 

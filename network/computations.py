@@ -19,9 +19,9 @@ def principal_eigen(p_3):
     B = A.clone()
 
     for i in range(A.shape[0]):
-        #print(len(result[i].shape))
+        ## print(len(result[i].shape))
         B[i] = A[i]/geometric_mean(A[i], A.shape[1], A.shape[2])
-    #print("Principal Eigenvector reconstruction has nans: {0}".format(torch.isnan(B)))
+    ## print("Principal Eigenvector reconstruction has nans: {0}".format(torch.isnan(B)))
     return B.view(B.shape[0],1,8,8)
 
 def alternating_least_squares(sparse_m, n, limit = 100, debug=False):
@@ -80,7 +80,7 @@ def min_eps(loss, eps=0.000001):
     if len(loss)<2:
         return True
     else:
-        #print("eps: {0}".format(np.abs(loss[-1]-loss[-2])))
+        ## print("eps: {0}".format(np.abs(loss[-1]-loss[-2])))
         return abs(loss[-1]-loss[-2])>eps
 
 def matmul(t1, t2):
@@ -107,8 +107,8 @@ def to_numpy(torch_tensor):
     return torch_tensor.cpu().detach().numpy()
 
 def split_matrix(d_n, d_n_1):
-    print("<---------Split map2pages---------->\n")
-    print("Input shape for split: {0}".format((d_n.shape)))
+    # print("<---------Split map2pages---------->\n")
+    # print("Input shape for split: {0}".format((d_n.shape)))
     ratio = int(d_n.shape[2]/16)
     first = []
     second = []
@@ -120,16 +120,16 @@ def split_matrix(d_n, d_n_1):
             r_e = r_s+16
             first.append(d_n[:,:,r_s:r_e, c_s:c_e])
             second.append(d_n_1[:,:, int(r_s/2):int(r_e/2), int(c_s/2):int(c_e/2)])
-    print("Depth map split into {0} pages of shape {1}.\n".format(len(first),first[0].shape))
+    # print("Depth map split into {0} pages of shape {1}.\n".format(len(first),first[0].shape))
     return first, second
 
 def reconstruct(splits):
     #split sizes must be the same
     #first concat along 2 axis
     #then concat along 3 axis
-    print("<---------Concat pages2map---------->\n")
-    print("Split shape: {0}".format(splits[0].shape))
-    print("Amount of pages: {0}".format(len(splits)))
+    # print("<---------Concat pages2map---------->\n")
+    # print("Split shape: {0}".format(splits[0].shape))
+    # print("Amount of pages: {0}".format(len(splits)))
     rows = []
     ratio = int(len(splits)**(1/2))
     container = None
@@ -141,7 +141,7 @@ def reconstruct(splits):
     
     reconstructed = torch.cat(rows, dim=3)
     
-    print("Output map shape: {0}\n".format(reconstructed.shape))
+    # print("Output map shape: {0}\n".format(reconstructed.shape))
 
     return reconstructed
 
@@ -155,7 +155,7 @@ def quick_gm(t):
     exp = 1/256 #hardcoded as sizes above 16x16 are not computed
     torch.squeeze(t)
     geomean = torch.prod(torch.pow(t,exp),0)
-    #print("Geometric mean: {0}".format(geomean))
+    ## print("Geometric mean: {0}".format(geomean))
     return geomean[0]
 
 def get_size(id):
@@ -189,8 +189,8 @@ def get_resized_area(r_s, r_e, c_s, c_e, dn_1):
     result[0][0][r_s+1][c_s:c_e] = kernel_r2
     result[0][0][r_e][c_s:c_e] = kernel_r3
     result = torch.reshape(result,(dn_1.shape[0], dn_1.shape[1], dn_1.shape[2]*dn_1.shape[3]))
-    # print("Result")
-    # print(result)
+    # # print("Result")
+    # # print(result)
     return result
 
 def find_nans(container):
@@ -232,15 +232,15 @@ def decompose_depth_map(container, dn, n, relative_map=False):
     """
     if n == 0:
         if not relative_map:
-            #print("D_0: {0}".format(dn))
+            ## print("D_0: {0}".format(dn))
             container.append(dn)#append d_0
-        print("\nDecomposed into {0} fine detail maps.".format(len(container)))
-        print("NaN values found? -> {0}".format(find_nans(container)))
+        # print("\nDecomposed into {0} fine detail maps.".format(len(container)))
+        # print("NaN values found? -> {0}".format(find_nans(container)))
         return container
     elif n >= 1:
         dn_1 = resize(dn, 2**(n-1))
         fn = dn / upsample(dn_1)
-        #print("F_{0}: {1}".format(n, dn))
+        ## print("F_{0}: {1}".format(n, dn))
         container.append(fn)
         return decompose_depth_map(container, dn_1, n-1, relative_map)
 
@@ -259,7 +259,7 @@ def recombination(list_of_components, n=7):
 
     result =  torch.log(multi_upsample(list_of_components.pop(0), n-1))
     for i in range(n-2):
-        #print(len(list_of_components), i)
+        ## print(len(list_of_components), i)
         result = result+torch.log(multi_upsample(list_of_components[i], n-(i+2)))
     
     optimal_map = d_0 + result 
@@ -323,7 +323,7 @@ def optimize_components_old(weights, yhat, y, lr=0.001):
     loss = [x.backward() for x in loss]
     with torch.no_grad():
         for i in range(len(yhat)) :
-            #print(w[i].grad)
+            ## print(w[i].grad)
             weights.update(i, lr, w[i].grad)
     
     return pred
@@ -370,12 +370,3 @@ def debug_print_list(li):
     for el in li:
         print(el)
 
-if __name__ == "__main__":
-    for dmap in debug_recombination():
-        print(dmap.shape)
-
-    print("recombinated shape: {0}".format(recombination(debug_recombination()).shape))
-    print(recombination(debug_recombination()))
-
-
-   
