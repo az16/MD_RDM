@@ -60,20 +60,31 @@ class DepthEstimationNet(BaseModel):
         #encoder propagation
         print("Encoder input: {0}".format(x))
         x = self.encoder.conv_e1(x)
+        print("Encoder layer 1: {0}".format(x))
+        print("Encoder layer 1 weights: {0}".format(self.encoder.conv_e1.weight))
         x = self.encoder.max_e1(x)
+        #print("Encoder layer 2: {0}".format(x))
         x = self.encoder.dense_e2(x)
+        #print("Encoder layer 3: {0}".format(x))
+        x = self.encoder.pad_br(x)
+        #print("Encoder layer 4: {0}".format(x))
         x = self.encoder.trans_e2(x)
-        x = self.encoder.pad_tl(x)
+        #print("Encoder layer 5: {0}".format(x))
         x = self.encoder.dense_e3(x)
+        #print("Encoder layer 6: {0}".format(x))
+        x = self.encoder.pad_br(x)
+        #print("Encoder layer 7: {0}".format(x))
         x = self.encoder.trans_e3(x)
-        x = self.encoder.pad_tl(x)
+        #print("Encoder layer 8: {0}".format(x))
         x = self.encoder.dense_e4(x)
+        #print("Encoder layer 9: {0}".format(x))
+        x = self.encoder.pad_br(x)
+        #print("Encoder layer 10: {0}".format(x))
         x = self.encoder.trans_e4(x)
-        x = self.encoder.pad_tl(x)
 
         #according to the authors, optimal performance is reached with decoders
         #1,6,7,8,9
-        print("Encoder output: {0}".format(x))
+        #print("Encoder output: {0}".format(x))
         x_d1 = self.d_1(x)#regular
         x_d6 = self.d_6(x)#relative
         x_d7 = self.d_7(x)#relative
@@ -427,7 +438,7 @@ def _make_encoder_():
 def _get_denseNet_Components(denseNet):
 
     encoder = nn.Module()
-    encoder.conv_e1 = nn.Conv2d(in_channels=3, kernel_size=7, stride=2, out_channels=96, padding=3)
+    encoder.conv_e1 = nn.Conv2d(in_channels=3, kernel_size=7, stride=2, out_channels=96, padding=3, padding_mode="reflect")
     encoder.max_e1 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
     encoder.dense_e2 = denseNet._DenseBlock(6, 96, 57, 48, 0.0, True)
     encoder.trans_e2 = denseNet._Transition(num_input_features=384, num_output_features=192)
@@ -435,7 +446,7 @@ def _get_denseNet_Components(denseNet):
     encoder.trans_e3 = denseNet._Transition(num_input_features=768, num_output_features=384)
     encoder.dense_e4 = denseNet._DenseBlock(36, 384, 15, 48, 0.0, True)
     encoder.trans_e4 = denseNet._Transition(num_input_features=2112, num_output_features=1056)
-    encoder.pad_tl = nn.ZeroPad2d((1,0,1,0))
+    encoder.pad_br = nn.ZeroPad2d((0,1,0,1))
 
     return encoder
 
@@ -483,10 +494,11 @@ def debug(container, id):
 if __name__ == "__main__":
     #inputs
     ground_truth = torch.randn((4,1,128,128))
-    test_input = torch.randn((4,1,8,8))
-    test_input2 = torch.randn((4,1,16,16))
-    ord = Ordinal_Layer(6, False, Quantization())
-    result = ord.sparse_comparison_id(test_input2, test_input)
+    x = torch.randn((4, 3, 226, 226))
+    # test_input = torch.randn((4,1,8,8))
+    # test_input2 = torch.randn((4,1,16,16))
+    # ord = Ordinal_Layer(6, False, Quantization())
+    # result = ord.sparse_comparison_id(test_input2, test_input)
     #print(result.shape)
     #print(result)
     #optimization params
@@ -507,6 +519,29 @@ if __name__ == "__main__":
     # print("\nFound final output nan values: {0}".format(cp.find_nans(result)))
     # print("Final output size: {0}".format(result.shape))
     # print(result)
+
+    encoder = _make_encoder_()
+    x = encoder.conv_e1(x)
+    print(x.shape) #113
+    x = encoder.max_e1(x)
+    print(x.shape) #57
+    x = encoder.dense_e2(x)
+    x = encoder.pad_br(x)
+    x = encoder.trans_e2(x)
+    print(x.shape) #29
+    x = encoder.dense_e3(x)
+    x = encoder.pad_br(x)
+    x = encoder.trans_e3(x)
+    #x = encoder.pad_br(x)
+    print(x.shape)
+    #x =self.encoder.pad_tl(x)
+    x = encoder.dense_e4(x)
+    x = encoder.pad_br(x)
+    x = encoder.trans_e4(x)
+    #x = encoder.pad_br(x)
+    print(x.shape)
+
+
 
 
     
