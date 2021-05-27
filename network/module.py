@@ -1,4 +1,3 @@
-from numpy.core.fromnumeric import resize
 import torch
 import pytorch_lightning as pl
 from metrics import MetricLogger
