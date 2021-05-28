@@ -23,7 +23,7 @@ class RelativeDephModule(pl.LightningModule):
                                                     num_workers=1, 
                                                     pin_memory=True) 
         self.criterion = torch.nn.MSELoss()
-        self.model = DepthEstimationNet()
+        self.model = DepthEstimationNet().cuda()
 
     def configure_optimizers(self):
         train_param = self.model.parameters()
