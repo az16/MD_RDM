@@ -102,7 +102,7 @@ class NYUDataset(BaseDataset):
         self.nyu_depth_v2_labeled_file = None
         self.exclude_mirrors = dataset_type == 'no_mirror'
         self.mirrors_only = dataset_type in ['mirror', 'mirror_corrected', 'mirror_pixel', 'mirror_pixel_corrected']
-        self.use_corrected_depth = 'corrected' in dataset_type and not self.split == "train"
+        self.use_corrected_depth = True #'corrected' in dataset_type and not self.split == "train"
         self.use_mat = not dataset_type == 'sparse_2_dense'
         self.mirror_pixel_only = 'mirror_pixel' in dataset_type
 
