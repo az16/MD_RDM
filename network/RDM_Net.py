@@ -241,12 +241,12 @@ class Ordinal_Layer(nn.Module):
                         index_row_end = index_row_start+2
                         index_col_start = int(min(max(index_resized_col, 0), dn_1.shape[3]-3))
                         index_col_end = index_col_start+3
-                        comparison_area = cp.get_resized_area(index_row_start, index_row_end, index_col_start, index_col_end, dn_1).cuda()
+                        comparison_area = cp.get_resized_area(index_row_start, index_row_end, index_col_start, index_col_end, dn_1) 
                         
                         sparse_m[b][index_row][index_col][:] = comparison_area[0][0]/dn[b][index_row][index_col]
 
         sparse_m = sparse_m.view(B,H*W,H_1*W_1)
-        depth_labels = torch.zeros(B,H*W,H_1*W_1, 40).cuda()
+        depth_labels = torch.zeros(B,H*W,H_1*W_1, 40) 
         relative_depth_map = self.LloydQuantization(depth_labels, sparse_m, id=self.id)
         ## print(relative_depth_map.shape)
         return relative_depth_map
@@ -405,7 +405,7 @@ class Weights:
         return self.weight_list[index]
 
     def _make_weightvector_list_(self, sizes):
-        return [torch.ones((size,1), requires_grad=True).cuda() for size in sizes]
+        return [torch.ones((size,1), requires_grad=True)  for size in sizes]
 
 def _make_wsm_vertical_(in_channels, out_channels, kernel_size, stride):
     """Stride has to be chosen in a way that only one convolution is performed

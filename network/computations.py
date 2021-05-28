@@ -233,7 +233,7 @@ def decompose_depth_map(container, dn, n, relative_map=False):
     if n == 0:
         if not relative_map:
             ## print("D_0: {0}".format(dn))
-            container.append(dn.cuda())#append d_0
+            container.append(dn )#append d_0
         # print("\nDecomposed into {0} fine detail maps.".format(len(container)))
         # print("NaN values found? -> {0}".format(find_nans(container)))
         return container
@@ -241,7 +241,7 @@ def decompose_depth_map(container, dn, n, relative_map=False):
         dn_1 = resize(dn, 2**(n-1))
         fn = dn / upsample(dn_1)
         ## print("F_{0}: {1}".format(n, dn))
-        container.append(fn.cuda())
+        container.append(fn )
         return decompose_depth_map(container, dn_1, n-1, relative_map)
 
 def recombination(list_of_components, n=7):

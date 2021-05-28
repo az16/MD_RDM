@@ -37,7 +37,7 @@ class RelativeDephModule(pl.LightningModule):
         return [optimizer], [scheduler]
 
     def forward(self, x):
-        fine_details, ord_pred = self.model(x)
+        fine_details, ord_pred = self.model(x.cuda())
         return fine_details, ord_pred
 
     def train_dataloader(self):
@@ -49,8 +49,8 @@ class RelativeDephModule(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
-        y = cp.resize(y,128)
-        fine_details, ord_pred = self(x)
+        y = cp.resize(y.cuda(),128)
+        fine_details, ord_pred = self(x.cuda())
 
         final_depth, fine_detail_loss = self.compute_final_depth(fine_details, y)
         ord_y = self.compute_ordinal_target(ord_pred, y)
@@ -63,9 +63,9 @@ class RelativeDephModule(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
-        y = cp.resize(y,128)
+        y = cp.resize(y.cuda(),128)
 
-        fine_details, _ = self(x)
+        fine_details, _ = self(x.cuda())
 
         y_hat, _ = self.compute_final_depth(fine_details, y)
         #ord_y = self.compute_ordinal_target(y_hat_ord, y)
