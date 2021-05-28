@@ -241,12 +241,12 @@ class Ordinal_Layer(nn.Module):
                         index_row_end = index_row_start+2
                         index_col_start = int(min(max(index_resized_col, 0), dn_1.shape[3]-3))
                         index_col_end = index_col_start+3
-                        comparison_area = cp.get_resized_area(index_row_start, index_row_end, index_col_start, index_col_end, dn_1)
+                        comparison_area = cp.get_resized_area(index_row_start, index_row_end, index_col_start, index_col_end, dn_1).cuda()
                         
                         sparse_m[b][index_row][index_col][:] = comparison_area[0][0]/dn[b][index_row][index_col]
 
         sparse_m = sparse_m.view(B,H*W,H_1*W_1)
-        depth_labels = torch.zeros(B,H*W,H_1*W_1, 40)
+        depth_labels = torch.zeros(B,H*W,H_1*W_1, 40).cuda()
         relative_depth_map = self.LloydQuantization(depth_labels, sparse_m, id=self.id)
         ## print(relative_depth_map.shape)
         return relative_depth_map
