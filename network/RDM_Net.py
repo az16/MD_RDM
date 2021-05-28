@@ -99,7 +99,7 @@ class DepthEstimationNet(BaseModel):
         f_d9 = cp.decompose_depth_map([], x_d9, 6, relative_map=True)[::-1]
 
         #bring into matrix form
-        y_hat = cp.relative_fine_detail_matrix([f_d1.cuda(), f_d6.cuda(), f_d7.cuda(), f_d8.cuda(), f_d9.cuda()])
+        y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9])
         
         return y_hat, x_d1
 class Decoder(nn.Module):
