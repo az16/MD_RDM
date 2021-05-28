@@ -11,6 +11,7 @@ from scipy.io import loadmat
 import json
 import tarfile
 import cv2
+import os 
 
 DATASET_TYPES = ['labeled', 'no_mirror', 'corrected', 'mirror', 'mirror_corrected', 'sparse_2_dense', 'no_mirror_no_window', 'mirror_pixel', 'mirror_pixel_corrected']
 
@@ -139,7 +140,7 @@ class NYUDataset(BaseDataset):
         self.nyu_depth_v2_labeled_file_corrected = (self.path/"nyu_depth_v2_labeled_corrected.mat")
         self.split_file = (self.path/"split.mat")
         self.mapping40_file = (self.path/"classMapping40.mat")
-        print(self.path/"nyu_depth_v2_labeled_corrected.mat", self.nyu_depth_v2_labeled_file_corrected.exists())
+        print(os.listdir(self.path))
         print(self.use_mat)
         if self.use_mat and not self.nyu_depth_v2_labeled_file_corrected.exists(): download(self.nyu_depth_v2_labeled_file_corrected, NYU_V2_CORRECTED_MAT_URL)
         if not self.split_file.exists(): download(self.split_file, NYU_V2_SPLIT_MAT_URL)
