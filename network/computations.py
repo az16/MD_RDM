@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import math
 
-torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
 def principal_eigen(p_3):
     """
@@ -23,7 +22,7 @@ def principal_eigen(p_3):
         ## print(len(result[i].shape))
         B[i] = A[i]/geometric_mean(A[i], A.shape[1], A.shape[2])
     ## print("Principal Eigenvector reconstruction has nans: {0}".format(torch.isnan(B)))
-    return B.view(B.shape[0],1,8,8)
+    return B.view(B.shape[0],1,8,8).cuda()
 
 def alternating_least_squares(sparse_m, n, limit = 100, debug=False):
     """
@@ -70,7 +69,7 @@ def alternating_least_squares(sparse_m, n, limit = 100, debug=False):
             print(quick_gm(p))
 
         filled[b] = p.view(1,out_size,out_size)
-    return filled
+    return filled.cuda()
 
 def min_eps(loss, eps=0.000001):
     """
