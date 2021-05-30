@@ -46,8 +46,8 @@ class Ordinal_Loss():
         if torch.cuda.is_available():
             one = one.cuda()
 
-        self.loss += torch.sum(torch.log(torch.clamp(ord_labels[mask_0], min=1e-8, max=1e8))) \
-                     + torch.sum(torch.log(torch.clamp(one - ord_labels[mask_1], min=1e-8, max=1e8)))
+        self.loss += torch.sum(torch.log(torch.clamp(ord_labels[mask_0], min=1e-8, max=1e8).float())) \
+                     + torch.sum(torch.log(torch.clamp(one - ord_labels[mask_1], min=1e-8, max=1e8).float()))
 
         # del K
         # del one
