@@ -346,7 +346,7 @@ def make_pred(w, A):
         tmp = torch.zeros((B, M, 1))
 
         for b in range(A[i].shape[0]):
-           tmp[b]  = A[i][b].T.float()@w[i].float()
+           tmp[b]  = A[i][b].T.float()@w[i].float().cuda()
         A[i] = tmp.view(B,1,int(math.sqrt(M)),int(math.sqrt(M)))
     return A 
 
