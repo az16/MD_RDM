@@ -6,6 +6,7 @@ import scipy.io
 import network.computations as cp
 from PIL import Image
 
+torch.set_default_tensor_type(torch.cuda.FloatTensor)
 class BaseModel(nn.Module):
     def load(self, path):
         """Load model from file.

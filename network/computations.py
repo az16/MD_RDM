@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import math
 
+torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
 def principal_eigen(p_3):
     """
