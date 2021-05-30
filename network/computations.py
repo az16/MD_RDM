@@ -353,7 +353,7 @@ def make_pred(w, A):
 def squared_err(yhat,y):
     sqr_err_list = []
     for i in range(7):
-        sqr_err_list.append(torch.sum(torch.abs(y[i]-yhat[i])**2))
+        sqr_err_list.append(torch.sum(torch.abs(y[i]-yhat[i])**2).cuda())
 
     return sqr_err_list
 

@@ -406,7 +406,7 @@ class Weights:
         return self.weight_list[index]
 
     def _make_weightvector_list_(self, sizes):
-        return [torch.ones((size,1), requires_grad=True)  for size in sizes]
+        return [torch.ones((size,1), requires_grad=True).cuda()  for size in sizes]
 
 def _make_wsm_vertical_(in_channels, out_channels, kernel_size, stride):
     """Stride has to be chosen in a way that only one convolution is performed
