@@ -347,8 +347,8 @@ def make_pred(w, A):
 
         for b in range(A[i].shape[0]):
            tmp[b]  = A[i][b].T.float()@w[i].float().cuda()
-        A[i] = tmp.view(B,1,int(math.sqrt(M)),int(math.sqrt(M)))
-    return A.cuda() 
+        A[i] = tmp.view(B,1,int(math.sqrt(M)),int(math.sqrt(M))).cuda()
+    return A
 
 def squared_err(yhat,y):
     sqr_err_list = []
