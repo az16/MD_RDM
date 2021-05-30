@@ -22,7 +22,7 @@ def principal_eigen(p_3):
         ## print(len(result[i].shape))
         B[i] = A[i]/geometric_mean(A[i], A.shape[1], A.shape[2])
     ## print("Principal Eigenvector reconstruction has nans: {0}".format(torch.isnan(B)))
-    return B.view(B.shape[0],1,8,8)
+    return B.view(B.shape[0],1,8,8).cuda()
 
 def alternating_least_squares(sparse_m, n, limit = 100, debug=False):
     """
@@ -191,7 +191,7 @@ def get_resized_area(r_s, r_e, c_s, c_e, dn_1):
     result = torch.reshape(result,(dn_1.shape[0], dn_1.shape[1], dn_1.shape[2]*dn_1.shape[3]))
     # # print("Result")
     # # print(result)
-    return result
+    return result.cuda()
 
 def find_nans(container):
     """
