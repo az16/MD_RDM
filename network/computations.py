@@ -22,7 +22,7 @@ def principal_eigen(p_3):
         ## print(len(result[i].shape))
         B[i] = A[i]/geometric_mean(A[i], A.shape[1], A.shape[2])
     ## print("Principal Eigenvector reconstruction has nans: {0}".format(torch.isnan(B)))
-    return B.view(B.shape[0],1,8,8).cuda()
+    return B.view(B.shape[0],1,8,8)
 
 def alternating_least_squares(sparse_m, n, limit = 100, debug=False):
     """

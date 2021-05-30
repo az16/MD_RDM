@@ -6,7 +6,6 @@ import scipy.io
 import network.computations as cp
 from PIL import Image
 
-torch.set_default_tensor_type(torch.cuda.FloatTensor)
 class BaseModel(nn.Module):
     def load(self, path):
         """Load model from file.
@@ -86,6 +85,7 @@ class DepthEstimationNet(BaseModel):
         #according to the authors, optimal performance is reached with decoders
         #1,6,7,8,9
         ## print("Encoder output: {0}".format(x))
+        x.cuda()
         x_d1 = self.d_1(x)#regular
         x_d6 = self.d_6(x)#relative
         x_d7 = self.d_7(x)#relative
