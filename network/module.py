@@ -49,6 +49,7 @@ class RelativeDephModule(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
+        print(x.dtype, y.dtype)
         y = cp.resize(y,128).cuda()
         fine_details, ord_pred = self(x.cuda())
 
