@@ -247,8 +247,8 @@ class NYUDataset(BaseDataset):
             rgb = TF.hflip(rgb)
             depth = TF.hflip(depth)
         # Transform to tensor
-        rgb = TF.to_tensor(np.array(rgb)).half()
-        depth = TF.to_tensor(np.array(depth)).half()
+        rgb = TF.to_tensor(np.array(rgb))
+        depth = TF.to_tensor(np.array(depth))
         return rgb, depth
 
     def validation_preprocess(self, rgb, depth):
@@ -263,8 +263,8 @@ class NYUDataset(BaseDataset):
         rgb = crop(rgb)
         depth = crop(depth)
         # Transform to tensor
-        rgb = TF.to_tensor(np.array(rgb)).half()
-        depth = TF.to_tensor(np.array(depth)).half()
+        rgb = TF.to_tensor(np.array(rgb))
+        depth = TF.to_tensor(np.array(depth))
         return rgb, depth
 
     def test_preprocess(self, rgb, depth):
