@@ -439,7 +439,7 @@ def _make_encoder_():
 def _get_denseNet_Components(denseNet):
 
     encoder = nn.Module()
-    encoder.conv_e1 = nn.Conv2d(in_channels=3, kernel_size=7, stride=2, out_channels=96, padding=3, padding_mode="reflect")
+    encoder.conv_e1 = nn.Conv2d(in_channels=3, kernel_size=7, stride=2, out_channels=96, padding=3)
     encoder.max_e1 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
     encoder.dense_e2 = denseNet._DenseBlock(6, 96, 57, 48, 0.0, True)
     encoder.trans_e2 = denseNet._Transition(num_input_features=384, num_output_features=192)
