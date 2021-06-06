@@ -1,6 +1,7 @@
 import torch
+from torch.functional import norm
 import torch.nn as nn
-import math
+import math, cmath
 
 
 def principal_eigen(p_3):
@@ -14,15 +15,34 @@ def principal_eigen(p_3):
     returns p_3 with approximated values
 
     """
-    A = torch.lobpcg(p_3, k=1)[1]
-    A = torch.abs(A)
-    B = A.clone()
+    #print(p_3)
+    r = torch.zeros((p_3.shape[0], 1, int(p_3.shape[1]**0.5), int(p_3.shape[2]**0.5)))
+    #A = torch.lobpcg(p_3, k=1, method="ortho")[1]
+    #A = torch.abs(A)
+    for i in range(p_3.shape[0]):
+        c = torch.eig(p_3[i], eigenvectors=True)
+        e_vals = c[0]
+        e_vecs = c[1]
+        #print(e_vals)
+        #print(e_vecs)
+        #print(torch.view_as_complex(e_vals))
+        #print(torch.abs(torch.view_as_complex(e_vals)))
+        p_v = get_eigenvector_from_eigenvalue(e_vals, e_vecs)
+        normed = p_v/geometric_mean(p_v, int(p_3.shape[1]**0.5), int(p_3.shape[1]**0.5))
+        #print(A.shape)
+        print(normed)
+        r[i][0] = normed.view(int(p_3.shape[1]**0.5), int(p_3.shape[1]**0.5))
+    
+    return r
 
-    for i in range(A.shape[0]):
-        ## print(len(result[i].shape))
-        B[i] = A[i]/geometric_mean(A[i], A.shape[1], A.shape[2])
-    ## print("Principal Eigenvector reconstruction has nans: {0}".format(torch.isnan(B)))
-    return B.view(B.shape[0],1,8,8).cuda()
+
+def get_eigenvector_from_eigenvalue(e, v):
+    idx = torch.topk(torch.abs(torch.view_as_complex(e)), k=1, dim=0)[1][0]
+    
+    corresponding_vector = v[:, idx]
+
+    print(corresponding_vector)
+    return torch.abs(corresponding_vector)
 
 def alternating_least_squares(sparse_m, n, limit = 100, debug=False):
     """
@@ -69,7 +89,7 @@ def alternating_least_squares(sparse_m, n, limit = 100, debug=False):
             print(quick_gm(p))
 
         filled[b] = p.view(1,out_size,out_size)
-    return filled.cuda()
+    return filled 
 
 def min_eps(loss, eps=0.000001):
     """
@@ -146,6 +166,7 @@ def reconstruct(splits):
     return reconstructed
 
 def geometric_mean(iterable, r, c):
+    #print(torch.pow(iterable,1/(r*c)))
     return torch.prod(torch.pow(iterable,1/(r*c)),0)
 
 def quick_gm(t):
@@ -191,7 +212,7 @@ def get_resized_area(r_s, r_e, c_s, c_e, dn_1):
     result = torch.reshape(result,(dn_1.shape[0], dn_1.shape[1], dn_1.shape[2]*dn_1.shape[3]))
     # # print("Result")
     # # print(result)
-    return result.cuda()
+    return result 
 
 def find_nans(container):
     """
@@ -208,6 +229,44 @@ def resize(depth_map, newsize):
     
     depth_map = depth_map.double()
     return nn.functional.interpolate(depth_map,size=newsize)
+
+def geometric_resize(depthmap):
+    """
+    Reduces size of the input depthmap by computing geometric mean for
+    every 4 entries in the input tensor
+
+    depthmap - depthmap of size 2**n x 2**n
+    returns - depthmap of size 2**n-1 x 2**n-1
+    """
+    B, C, H, W = depthmap.size()
+    depthmap = depthmap.view(B,H,W)
+    dn_1 = torch.zeros((B, int(H/2), int(W/2)))
+    ratio = int(H/2)
+    m = 2
+    for i in range(ratio):
+        for j in range(ratio):
+            c_s = m*j
+            c_e = c_s + 2
+            r_s = m*i
+            r_e = r_s+2
+            original = depthmap[:, r_s:r_e, c_s:c_e]
+            tmp = compress_entry(original)
+            tmp = tmp.view(B)
+            dn_1[:, i, j] = tmp
+
+    return dn_1.view(B, 1, ratio, ratio)
+
+def compress_entry(block):
+    """
+    Takes a block of 4 tensor entries and calculates the geometric mean
+    returns geometric mean for block of 4 (for resizing)
+    """
+    B,H,W = block.size()
+    result = torch.zeros((B,1))
+    for b in range(B):
+        result[b] = torch.prod(torch.pow(torch.flatten(block[b]),1/4),0)
+
+    return result
 
 def upsample(depth_map):
     depth_map = depth_map.double()
@@ -238,7 +297,7 @@ def decompose_depth_map(container, dn, n, relative_map=False):
         # print("NaN values found? -> {0}".format(find_nans(container)))
         return container
     elif n >= 1:
-        dn_1 = resize(dn, 2**(n-1))
+        dn_1 = geometric_resize(dn)
         fn = dn / upsample(dn_1)
         ## print("F_{0}: {1}".format(n, dn))
         container.append(fn )
@@ -342,18 +401,18 @@ def optimize_components(weights, yhat, y):
 
 def make_pred(w, A):
     for i in range(len(A)):
-        B,M = A[i].shape[0], A[i].shape[2]
+        B, M = A[i].shape[0], A[i].shape[2]
         tmp = torch.zeros((B, M, 1))
 
         for b in range(A[i].shape[0]):
-           tmp[b]  = A[i][b].T.float()@w[i].float().cuda()
-        A[i] = tmp.view(B,1,int(math.sqrt(M)),int(math.sqrt(M))).cuda()
+           tmp[b]  = A[i][b].T.float()@w[i].float() 
+        A[i] = tmp.view(B,1,int(math.sqrt(M)),int(math.sqrt(M))) 
     return A
 
 def squared_err(yhat,y):
     sqr_err_list = []
     for i in range(7):
-        sqr_err_list.append(torch.sum(torch.abs(y[i]-yhat[i])**2).cuda())
+        sqr_err_list.append(torch.sum(torch.abs(y[i]-yhat[i])**2) )
 
     return sqr_err_list
 
@@ -369,4 +428,97 @@ def debug_print_list(li):
     print("length: {0}".format(len(li)))
     for el in li:
         print(el)
+        
+def get_depth_sid(args, labels):
+    if args == 'kitti':
+        min = 0.001
+        max = 80.0
+        K = 71.0
+    elif args == 'nyu':
+        min = 0.02
+        max = 10.0
+        K = 68.0
+    elif args == 'floorplan3d':
+        min = 0.0552
+        max = 10.0
+        K = 68.0
+    elif args == 'Structured3D':
+        min = 0.02
+        max = 10.0
+        K = 68.0
+    else:
+        print('No Dataset named as ', args.dataset)
+
+    # if torch.cuda.is_available():
+    #     alpha_ = torch.tensor(min).cuda()
+    #     beta_ = torch.tensor(max).cuda()
+    #     K_ = torch.tensor(K).cuda()
+    #else:
+    alpha_ = torch.tensor(min)
+    beta_ = torch.tensor(max)
+    K_ = torch.tensor(K)
+
+    # print('label size:', labels.size())
+    if not alpha_ == 0.0:
+        depth = torch.exp(torch.log(alpha_) + torch.log(beta_ / alpha_) * labels / K_)
+    else:
+        depth = torch.exp(torch.log(beta_) * labels / K_)
+    # depth = alpha_ * (beta_ / alpha_) ** (labels.float() / K_)
+    # print(depth.size())
+    return depth.float()
+
+
+def get_labels_sid(args, depth):
+    if args == 'kitti':
+        alpha = 0.001
+        beta = 80.0
+        K = 71.0
+    elif args == 'nyu':
+        alpha = 0.02
+        beta = 10.0
+        K = 68.0
+    elif args == 'floorplan3d':
+        alpha = 0.0552
+        beta = 10.0
+        K = 68.0
+    elif args == 'Structured3D':
+        alpha = 0.02
+        beta = 10.0
+        K = 68
+    else:
+        print('No Dataset named as ', args.dataset)
+
+    alpha = torch.tensor(alpha)
+    beta = torch.tensor(beta)
+    K = torch.tensor(K)
+
+    # if torch.cuda.is_available():
+    #     alpha = alpha.cuda()
+    #     beta = beta.cuda()
+    #     K = K.cuda()
+    if not alpha == 0.0:
+        labels = K * torch.log(depth / alpha) / torch.log(beta / alpha)
+    else:
+        labels = K * torch.log(depth) / torch.log(beta)
+    # if torch.cuda.is_available():
+    #     labels = labels.cuda()
+    return labels.int()
+
+if __name__ == "__main__":
+    test = torch.abs(torch.randn((1,2,2)))
+    test = test.view(1,1,2*2)
+    test = test
+    inv = 1/test
+    #print(test, inv)
+    inp = torch.zeros((1, 4, 4))
+    for b in range(test.shape[0]):
+        inp[b] = torch.matmul(test[b].T, inv[b])
+
+    #print(torch.tril(inp))
+    #print(torch.triu(inp))
+    #print(torch.trace(inp[0]))
+    print(inp)
+    result = principal_eigen(inp)
+    print(result)
+    
 

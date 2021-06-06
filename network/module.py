@@ -23,7 +23,7 @@ class RelativeDephModule(pl.LightningModule):
                                                     num_workers=1, 
                                                     pin_memory=True) 
         self.criterion = torch.nn.MSELoss()
-        self.model = DepthEstimationNet().cuda()
+        self.model = DepthEstimationNet()
 
     def configure_optimizers(self):
         train_param = self.model.parameters()
@@ -37,8 +37,8 @@ class RelativeDephModule(pl.LightningModule):
         return [optimizer], [scheduler]
 
     def forward(self, x):
-        fine_details, ord_pred = self.model(x.cuda())
-        return fine_details, ord_pred
+        fine_details, d_pred, l_pred = self.model(x )
+        return fine_details, d_pred, l_pred
 
     def train_dataloader(self):
         return self.train_loader
@@ -50,12 +50,12 @@ class RelativeDephModule(pl.LightningModule):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
         print(x.dtype, y.dtype)
-        y = cp.resize(y,128).cuda()
-        fine_details, ord_pred = self(x.cuda())
+        y = cp.resize(y,128) 
+        fine_details, ord_depth_pred, ord_label_pred = self(x)
 
         final_depth, fine_detail_loss = self.compute_final_depth(fine_details, y)
-        ord_y = self.compute_ordinal_target(ord_pred, y)
-        ord_loss = l.Ordinal_Loss().calc(ord_pred, ord_y)
+        ord_y = self.compute_ordinal_target(ord_depth_pred, y)
+        ord_loss = l.Ordinal_Loss().calc(ord_label_pred, ord_y)
 
         loss = self.criterion(final_depth, y) + ord_loss + fine_detail_loss
 
@@ -64,11 +64,10 @@ class RelativeDephModule(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
-        y = cp.resize(y,128).cuda()
-        fine_details, _ = self(x.cuda())
+        y = cp.resize(y,128) 
+        fine_details, _, _ = self(x)
 
         y_hat, _ = self.compute_final_depth(fine_details, y)
-        #ord_y = self.compute_ordinal_target(y_hat_ord, y)
 
         return self.metric_logger.log_val(y_hat, y)
     
@@ -85,5 +84,5 @@ class RelativeDephModule(pl.LightningModule):
         #resize target to correct size
         target = cp.resize(target, ord_pred.shape[2])
         #transform with ordinal regression so it can be compared
-        ord_target = u.get_depth_sid("nyu", target)
+        ord_target = u.get_labels_sid("nyu", target)
         return ord_target

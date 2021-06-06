@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.nn.modules import utils
 import torchvision
 import numpy as np
 import scipy.io
@@ -58,35 +59,35 @@ class DepthEstimationNet(BaseModel):
 
     def forward(self, x):
         #encoder propagation
-        ## print("Encoder input: {0}".format(x))
+        # print("Encoder input: {0}".format(x))
         x = self.encoder.conv_e1(x)
         # print("Encoder layer 1: {0}".format(x))
         # print("Encoder layer 1 weights: {0}".format(self.encoder.conv_e1.weight))
         x = self.encoder.max_e1(x)
-        ## print("Encoder layer 2: {0}".format(x))
+        # print("Encoder layer 2: {0}".format(x))
         x = self.encoder.dense_e2(x)
-        ## print("Encoder layer 3: {0}".format(x))
+        # print("Encoder layer 3: {0}".format(x))
         x = self.encoder.pad_br(x)
-        ## print("Encoder layer 4: {0}".format(x))
+        # print("Encoder layer 4: {0}".format(x))
         x = self.encoder.trans_e2(x)
-        ## print("Encoder layer 5: {0}".format(x))
+        # print("Encoder layer 5: {0}".format(x))
         x = self.encoder.dense_e3(x)
-        ## print("Encoder layer 6: {0}".format(x))
+        # print("Encoder layer 6: {0}".format(x))
         x = self.encoder.pad_br(x)
-        ## print("Encoder layer 7: {0}".format(x))
+        # print("Encoder layer 7: {0}".format(x))
         x = self.encoder.trans_e3(x)
-        ## print("Encoder layer 8: {0}".format(x))
+        # print("Encoder layer 8: {0}".format(x))
         x = self.encoder.dense_e4(x)
-        ## print("Encoder layer 9: {0}".format(x))
+        # print("Encoder layer 9: {0}".format(x))
         x = self.encoder.pad_br(x)
-        ## print("Encoder layer 10: {0}".format(x))
+        # print("Encoder layer 10: {0}".format(x))
         x = self.encoder.trans_e4(x)
-
+        # print("Encoder output: {0}".format(x))
         #according to the authors, optimal performance is reached with decoders
         #1,6,7,8,9
         ## print("Encoder output: {0}".format(x))
-        x.cuda()
-        x_d1 = self.d_1(x)#regular
+         
+        x_d1, ord_labels = self.d_1(x)#regular
         x_d6 = self.d_6(x)#relative
         x_d7 = self.d_7(x)#relative
         x_d8 = self.d_8(x)#relative
@@ -102,7 +103,7 @@ class DepthEstimationNet(BaseModel):
         #bring into matrix form
         y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9])
         
-        return y_hat, x_d1
+        return y_hat, x_d1, ord_labels
 class Decoder(nn.Module):
     def __init__(self, in_channels, num_wsm_layers, DORN, id, quant):
         super(Decoder, self).__init__()
@@ -293,6 +294,7 @@ class Ordinal_Layer(nn.Module):
         replace iter with matrix operation
         fast speed methods
         """
+        #implementation from DORN paper
         A = x[:, ::2, :, :].clone()
         B = x[:, 1::2, :, :].clone()
 
@@ -309,20 +311,24 @@ class Ordinal_Layer(nn.Module):
         ord_c1 = ord_c1.view(-1, ord_num, H, W)
 
         decode_c = torch.sum((ord_c1 > 0.5), dim=1).view(-1, 1, H, W)
-        # decode_c = torch.sum(ord_c1, dim=1).view(-1, 1, H, W)
-        # print(decode_c.shape)
-        # print("D1 done.")
-        return decode_c#, ord_c1
+        #decode_c = torch.sum(ord_c1, dim=1).view(-1, 1, H, W)
+
+        return decode_c, ord_c1
 
     def forward(self, x):
         if self.dorn:
+            #print("Before DornRegression: {0}".format(x))
             x = self.DornOrdinalRegression(x)
+            #print("After DornRegression: {0}".format(x))
             return x 
         else:
             if self.id == 3:
                 #use regular comparison matrix
+                #print("D6 input: {0}".format(x))
                 x = self.sparse_comparison_v1(x)
+                #print("D6 comparison output: {0}".format(x))
                 x = cp.principal_eigen(x)
+                #print("D6 principal_eigenvector method output: {0}".format(x))
                 # print(x.shape)
                 # print("D6 done.")
                 return x 
@@ -330,8 +336,11 @@ class Ordinal_Layer(nn.Module):
             elif self.id == 4:
                 #use comparison scheme described in paper
                 dn = x 
-                dn_1 = cp.resize(dn, self.quant.get_size_id(self.id-1))
+                dn_1 = cp.geometric_resize(dn)
+                #print("D7 input as d_n: {0}".format(dn))
+                #print("D7 input as d_n-1: {0}".format(dn_1))
                 x = self.sparse_comparison_id(dn, dn_1)
+                #print("D7 output after comparison: {0}".format(x))
                 filled_map = cp.alternating_least_squares(sparse_m=x, n=4, limit=100)
                 # print(filled_map.shape)
                 # print("D7 done.")
@@ -340,7 +349,9 @@ class Ordinal_Layer(nn.Module):
             elif self.id > 4:
                 #for efficiency depth maps are split into 16x16 and 8x8
                 dn = x 
-                dn_1 = cp.resize(dn, self.quant.get_size_id(self.id-1))
+                dn_1 = cp.geometric_resize(dn)
+                #print("D8+9 input as d_n: {0}".format(dn))
+                #print("D8+9 input as d_n-1: {0}".format(dn_1))
                 dn_pages, dn_1_pages = cp.split_matrix(dn, dn_1) #two lists of split pages (same length) from dn and dn_1
                 zipped = zip(dn_pages,dn_1_pages)
                 sparse_pages = [self.sparse_comparison_id(z[0], z[1]) for z in zipped]
@@ -406,7 +417,7 @@ class Weights:
         return self.weight_list[index]
 
     def _make_weightvector_list_(self, sizes):
-        return [torch.ones((size,1), requires_grad=True).cuda()  for size in sizes]
+        return [torch.ones((size,1), requires_grad=True)   for size in sizes]
 
 def _make_wsm_vertical_(in_channels, out_channels, kernel_size, stride):
     """Stride has to be chosen in a way that only one convolution is performed
@@ -493,11 +504,12 @@ def debug(container, id):
     print("\n")
 
 
-
-
-
-
-    
-
+if __name__ == "__main__":
+    inp = torch.randn((1, 8, 8, 8))
+    ord = Ordinal_Layer(3, True, Quantization())
+    d_pred, l_pred = ord.DornOrdinalRegression(inp)
+    print(d_pred)
+    d = cp.get_depth_sid("nyu", d_pred)
+    print(d)
 
 
