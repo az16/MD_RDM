@@ -23,3 +23,11 @@ This is a pytorch implementation of 'Monocular Depth Estimation Using Relative D
 - [x] Training cycle
 - [x] Dataloaders + Augmentation
 - [ ] Training
+# Debugging and current Issues
+## Debugging
+- [x] Embedded geometric mean into resize method (before only used regular pytorch resize)
+- [x] Eigenvector calculation: torch.lobgc method takes symmetric matrices as input --> our input is a reciprocal matrix so torch.eig is now used
+- [x] DORN loss adjusted to fit our depth maps
+## Current Issues
+- [ ] Encoder uses conv layers --> cause negative values in tensor due to negative kernel weights --> influences the ordinal layers since they expect positive inputs   
+- [ ] torch.eig returns complex eigenvalues --> backward method does not support complex tensor types yet
