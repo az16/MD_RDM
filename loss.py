@@ -30,24 +30,24 @@ class Ordinal_Loss():
         self.loss = 0.0
 
         # faster version
-        # if torch.cuda.is_available():
-        #     K = torch.zeros((N, C, H, W), dtype=torch.int).cuda()
-        #     for i in range(ord_num):
-        #         K[:, i, :, :] = K[:, i, :, :] + i * torch.ones((N, H, W), dtype=torch.int).cuda()
-        # else:
-        K = torch.zeros((N, C, H, W), dtype=torch.int)
-        for i in range(ord_num):
-            K[:, i, :, :] = K[:, i, :, :] + i * torch.ones((N, H, W), dtype=torch.int)
+        if torch.cuda.is_available():
+            K = torch.zeros((N, C, H, W), dtype=torch.int).cuda()
+            for i in range(ord_num):
+                K[:, i, :, :] = K[:, i, :, :] + i * torch.ones((N, H, W), dtype=torch.int).cuda()
+        else:
+            K = torch.zeros((N, C, H, W), dtype=torch.int)
+            for i in range(ord_num):
+                K[:, i, :, :] = K[:, i, :, :] + i * torch.ones((N, H, W), dtype=torch.int)
 
         mask_0 = (K <= target).detach()
         mask_1 = (K > target).detach()
 
         one = torch.ones(ord_labels[mask_1].size())
-        # if torch.cuda.is_available():
-        #     one = one.cuda()
+        if torch.cuda.is_available():
+            one = one.cuda()
 
-        self.loss += torch.sum(torch.log(torch.clamp(ord_labels[mask_0], min=1e-8, max=1e8))) \
-                     + torch.sum(torch.log(torch.clamp(one - ord_labels[mask_1], min=1e-8, max=1e8)))
+        self.loss += torch.sum(torch.log(torch.clamp(ord_labels[mask_0], min=1e-8, max=1e8).float())) \
+                     + torch.sum(torch.log(torch.clamp(one - ord_labels[mask_1], min=1e-8, max=1e8).float()))
 
         # del K
         # del one

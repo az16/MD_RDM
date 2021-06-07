@@ -86,9 +86,11 @@ class DepthEstimationNet(BaseModel):
         #according to the authors, optimal performance is reached with decoders
         #1,6,7,8,9
         ## print("Encoder output: {0}".format(x))
-         
+        x.cuda()
         x_d1, ord_labels = self.d_1(x)#regular
+        #print(x_d1)
         x_d6 = self.d_6(x)#relative
+        #print(x_d6)
         x_d7 = self.d_7(x)#relative
         x_d8 = self.d_8(x)#relative
         x_d9 = self.d_9(x)#relative
@@ -114,6 +116,8 @@ class Decoder(nn.Module):
         self.dense_layer = torchvision.models.densenet._DenseBlock(24, 1056, 8, 48, 0.0, True)
         self.wsm_block = _make_wsm_layers_(num_wsm_layers)
         self.conv1 = nn.Conv2d(in_channels=_wsm_output_planes(id), out_channels=1, kernel_size=1)
+        self.conv2 = nn.Conv2d(in_channels=_wsm_output_planes(id), out_channels=180, kernel_size=1)
+
         self.ord_layer = Ordinal_Layer(id, DORN, quant)
 
     def forward(self, x):
@@ -124,6 +128,8 @@ class Decoder(nn.Module):
         ## print(x.shape)
         if self.id > 5:
             x = self.conv1(x)#make feature map have only one channel
+        if self.id == 1:
+            x = self.conv2(x)
 
         x = self.ord_layer(x)
 
@@ -243,9 +249,10 @@ class Ordinal_Layer(nn.Module):
                         index_row_end = index_row_start+2
                         index_col_start = int(min(max(index_resized_col, 0), dn_1.shape[3]-3))
                         index_col_end = index_col_start+3
-                        comparison_area = cp.get_resized_area(index_row_start, index_row_end, index_col_start, index_col_end, dn_1) 
-                        
-                        sparse_m[b][index_row][index_col][:] = comparison_area[0][0]/dn[b][index_row][index_col]
+                        comparison_area = cp.get_resized_area(b, index_row_start, index_row_end, index_col_start, index_col_end, dn_1) 
+                        tmp = dn[b][index_row][index_col]*torch.pow(comparison_area[0][0],-1)
+                        #print(tmp)
+                        sparse_m[b][index_row][index_col] = tmp
 
         sparse_m = sparse_m.view(B,H*W,H_1*W_1)
         depth_labels = torch.zeros(B,H*W,H_1*W_1, 40) 
@@ -316,18 +323,22 @@ class Ordinal_Layer(nn.Module):
         return decode_c, ord_c1
 
     def forward(self, x):
+        #print(x)
         if self.dorn:
             #print("Before DornRegression: {0}".format(x))
-            x = self.DornOrdinalRegression(x)
+            depth, labels = self.DornOrdinalRegression(x)
             #print("After DornRegression: {0}".format(x))
-            return x 
+            depth = depth/cp.geometric_mean(torch.squeeze(depth), 8, 8)
+            #depth = torch.unsqueeze(depth, dim=1)
+            #print(depth)
+            return (depth, labels) 
         else:
             if self.id == 3:
                 #use regular comparison matrix
                 #print("D6 input: {0}".format(x))
                 x = self.sparse_comparison_v1(x)
                 #print("D6 comparison output: {0}".format(x))
-                x = cp.principal_eigen(x)
+                x = cp.quadratic_als(x)
                 #print("D6 principal_eigenvector method output: {0}".format(x))
                 # print(x.shape)
                 # print("D6 done.")
@@ -336,7 +347,7 @@ class Ordinal_Layer(nn.Module):
             elif self.id == 4:
                 #use comparison scheme described in paper
                 dn = x 
-                dn_1 = cp.geometric_resize(dn)
+                dn_1 = cp.resize(dn, self.quant.get_size_id(self.id-1))
                 #print("D7 input as d_n: {0}".format(dn))
                 #print("D7 input as d_n-1: {0}".format(dn_1))
                 x = self.sparse_comparison_id(dn, dn_1)
@@ -349,7 +360,7 @@ class Ordinal_Layer(nn.Module):
             elif self.id > 4:
                 #for efficiency depth maps are split into 16x16 and 8x8
                 dn = x 
-                dn_1 = cp.geometric_resize(dn)
+                dn_1 = cp.resize(dn, self.quant.get_size_id(self.id-1))
                 #print("D8+9 input as d_n: {0}".format(dn))
                 #print("D8+9 input as d_n-1: {0}".format(dn_1))
                 dn_pages, dn_1_pages = cp.split_matrix(dn, dn_1) #two lists of split pages (same length) from dn and dn_1
@@ -417,7 +428,7 @@ class Weights:
         return self.weight_list[index]
 
     def _make_weightvector_list_(self, sizes):
-        return [torch.ones((size,1), requires_grad=True)   for size in sizes]
+        return [torch.ones((size,1), requires_grad=True).cuda()   for size in sizes]
 
 def _make_wsm_vertical_(in_channels, out_channels, kernel_size, stride):
     """Stride has to be chosen in a way that only one convolution is performed
@@ -482,7 +493,7 @@ def _make_wsm_layers_(num_of_layers):
     return wsm_block
 
 def _wsm_output_planes(decoder_id):
-    if decoder_id==6:
+    if decoder_id==6 or decoder_id == 1:
         return 2208
     elif decoder_id==7:
         return 1664

@@ -23,7 +23,7 @@ class RelativeDephModule(pl.LightningModule):
                                                     num_workers=1, 
                                                     pin_memory=True) 
         self.criterion = torch.nn.MSELoss()
-        self.model = DepthEstimationNet()
+        self.model = DepthEstimationNet().cuda()
 
     def configure_optimizers(self):
         train_param = self.model.parameters()
@@ -37,7 +37,7 @@ class RelativeDephModule(pl.LightningModule):
         return [optimizer], [scheduler]
 
     def forward(self, x):
-        fine_details, d_pred, l_pred = self.model(x )
+        fine_details, d_pred, l_pred = self.model(x.cuda())
         return fine_details, d_pred, l_pred
 
     def train_dataloader(self):
@@ -49,23 +49,28 @@ class RelativeDephModule(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
-        print(x.dtype, y.dtype)
-        y = cp.resize(y,128) 
-        fine_details, ord_depth_pred, ord_label_pred = self(x)
+        #print(x.dtype, y.dtype)
+        y = cp.resize(y,128).cuda() 
+        fine_details, ord_depth_pred, ord_label_pred = self(x.cuda())
 
         final_depth, fine_detail_loss = self.compute_final_depth(fine_details, y)
+        #print(torch.isnan(final_depth).any())
         ord_y = self.compute_ordinal_target(ord_depth_pred, y)
         ord_loss = l.Ordinal_Loss().calc(ord_label_pred, ord_y)
 
-        loss = self.criterion(final_depth, y) + ord_loss + fine_detail_loss
-
-        return self.metric_logger.log_train(final_depth, y, loss)
+        mse = self.criterion(final_depth, y)
+        loss_all = mse + ord_loss + fine_detail_loss
+       
+        self.log("MSE", mse, prog_bar=True)
+        self.log("ord_loss", ord_loss, prog_bar=True)
+        self.log("fine_detail", fine_detail_loss, prog_bar=True)             
+        return self.metric_logger.log_train(final_depth, y, loss_all)
 
     def validation_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
-        y = cp.resize(y,128) 
-        fine_details, _, _ = self(x)
+        y = cp.resize(y,128).cuda()
+        fine_details, _, _ = self(x.cuda())
 
         y_hat, _ = self.compute_final_depth(fine_details, y)
 

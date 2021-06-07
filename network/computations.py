@@ -30,14 +30,54 @@ def principal_eigen(p_3):
         p_v = get_eigenvector_from_eigenvalue(e_vals, e_vecs)
         normed = p_v/geometric_mean(p_v, int(p_3.shape[1]**0.5), int(p_3.shape[1]**0.5))
         #print(A.shape)
-        print(normed)
+        print(normed.shape)
         r[i][0] = normed.view(int(p_3.shape[1]**0.5), int(p_3.shape[1]**0.5))
     
     return r
 
+def quadratic_als(sparse_m, n=3, limit = 100, debug = False):
+    B, H, W = sparse_m.size()
+    out_size = 2**n
+    filled = torch.zeros(B,1,out_size,out_size)
+    #go through batch and do als for each comparison matrix
+    for b in range(B):
+        sparse = sparse_m[b]
+        p = torch.rand((2**(2*n),1))
+        q = torch.rand((2**(2*n),1))
+        
+        rmse_record = []
+
+        rmse_record.append(rmse(matmul(p,q.T), sparse))
+
+        #training loop
+        iteration = 0 
+        while(min_eps(rmse_record) and iteration < limit):
+            
+            p = als_step(sparse, q)
+            rmse_record.append(rmse(matmul(p,q.T), sparse))
+
+            q = als_step(sparse, p)
+            rmse_record.append(rmse(matmul(p,q.T), sparse))
+
+            if debug:
+                print("iteration: {:.0f}".format(iteration+1))
+                print("rmse_losses: p = {0}, q = {1}".format(rmse_record[iteration], rmse_record[iteration+1]))
+
+            iteration = iteration + 1
+
+        #normalize with geometric mean
+        s = int(sparse_m.shape[1]**0.5)
+        p = p/geometric_mean(torch.squeeze(p), s, s)
+        if debug: 
+            print("Geometric mean of normalized map: {0}".format(geometric_mean(torch.squeeze(p), s, s)))
+            #print(p.view(1, out_size, out_size))
+
+        filled[b] = p.view(1,out_size,out_size)
+    return filled.cuda() 
+
 
 def get_eigenvector_from_eigenvalue(e, v):
-    idx = torch.topk(torch.abs(torch.view_as_complex(e)), k=1, dim=0)[1][0]
+    idx = torch.topk(e, k=1, dim=0)[1][0][0]
     
     corresponding_vector = v[:, idx]
 
@@ -89,7 +129,7 @@ def alternating_least_squares(sparse_m, n, limit = 100, debug=False):
             print(quick_gm(p))
 
         filled[b] = p.view(1,out_size,out_size)
-    return filled 
+    return filled.cuda() 
 
 def min_eps(loss, eps=0.000001):
     """
@@ -191,7 +231,7 @@ def get_size(id):
     elif id == 7:
         return 128,64
 
-def get_resized_area(r_s, r_e, c_s, c_e, dn_1):
+def get_resized_area(batch, r_s, r_e, c_s, c_e, dn_1):
     """
     r_s - row start index
     r_e - row end index
@@ -201,18 +241,19 @@ def get_resized_area(r_s, r_e, c_s, c_e, dn_1):
 
     returns the 3x3 area in the previous depth map
     """
-    kernel_r1 = dn_1[0][0][r_s][c_s:c_e]
-    kernel_r2 = dn_1[0][0][r_s+1][c_s:c_e]
-    kernel_r3 = dn_1[0][0][r_e][c_s:c_e]
+    kernel_r1 = dn_1[batch][0][r_s][c_s:c_e]
+    kernel_r2 = dn_1[batch][0][r_s+1][c_s:c_e]
+    kernel_r3 = dn_1[batch][0][r_e][c_s:c_e]
 
-    result = torch.empty(dn_1.shape[0], dn_1.shape[1], dn_1.shape[2],dn_1.shape[3])
+    result = torch.ones((1, dn_1.shape[1], dn_1.shape[2],dn_1.shape[3]))
+    result = result.cuda()
     result[0][0][r_s][c_s:c_e] = kernel_r1
     result[0][0][r_s+1][c_s:c_e] = kernel_r2
     result[0][0][r_e][c_s:c_e] = kernel_r3
-    result = torch.reshape(result,(dn_1.shape[0], dn_1.shape[1], dn_1.shape[2]*dn_1.shape[3]))
+    #result = torch.reshape(result,(dn_1.shape[0], dn_1.shape[1], dn_1.shape[2]*dn_1.shape[3]))
     # # print("Result")
     # # print(result)
-    return result 
+    return result.view(1, 1, dn_1.shape[2]*dn_1.shape[3])
 
 def find_nans(container):
     """
@@ -297,7 +338,7 @@ def decompose_depth_map(container, dn, n, relative_map=False):
         # print("NaN values found? -> {0}".format(find_nans(container)))
         return container
     elif n >= 1:
-        dn_1 = geometric_resize(dn)
+        dn_1 = resize(dn, 2**(n-1))
         fn = dn / upsample(dn_1)
         ## print("F_{0}: {1}".format(n, dn))
         container.append(fn )
@@ -397,7 +438,7 @@ def optimize_components(weights, yhat, y):
     # loss = [x.backward() for x in loss]
     # optimizer.step()
 
-    return pred, torch.sum(torch.as_tensor(loss))
+    return pred, torch.mean(torch.as_tensor(loss))
 
 def make_pred(w, A):
     for i in range(len(A)):
@@ -405,14 +446,17 @@ def make_pred(w, A):
         tmp = torch.zeros((B, M, 1))
 
         for b in range(A[i].shape[0]):
-           tmp[b]  = A[i][b].T.float()@w[i].float() 
-        A[i] = tmp.view(B,1,int(math.sqrt(M)),int(math.sqrt(M))) 
+           tmp[b]  = A[i][b].T.float()@w[i].float().cuda() 
+        A[i] = tmp.view(B,1,int(math.sqrt(M)),int(math.sqrt(M))).cuda() 
     return A
 
 def squared_err(yhat,y):
     sqr_err_list = []
     for i in range(7):
-        sqr_err_list.append(torch.sum(torch.abs(y[i]-yhat[i])**2) )
+        #print(torch.min(yhat[i]), torch.min(y[i]))
+        #print(torch.max(yhat[i]), torch.max(y[i]))
+        # if i>0:
+        sqr_err_list.append(torch.nn.MSELoss()(yhat[i],y[i]).cuda())
 
     return sqr_err_list
 
@@ -518,7 +562,8 @@ if __name__ == "__main__":
     #print(torch.triu(inp))
     #print(torch.trace(inp[0]))
     print(inp)
-    result = principal_eigen(inp)
-    print(result)
+    #result = principal_eigen(inp)
+    result = quadratic_als(inp, n=1, debug=True)
+    print("Final output: {0}".format(result))
     
 
