@@ -137,14 +137,14 @@ def get_depth_sid(args, labels):
     else:
         print('No Dataset named as ', args.dataset)
 
-    # if torch.cuda.is_available():
-    #     alpha_ = torch.tensor(min).cuda()
-    #     beta_ = torch.tensor(max).cuda()
-    #     K_ = torch.tensor(K).cuda()
-    #else:
-    alpha_ = torch.tensor(min)
-    beta_ = torch.tensor(max)
-    K_ = torch.tensor(K)
+    if torch.cuda.is_available():
+        alpha_ = torch.tensor(min).cuda()
+        beta_ = torch.tensor(max).cuda()
+        K_ = torch.tensor(K).cuda()
+    else:
+        alpha_ = torch.tensor(min)
+        beta_ = torch.tensor(max)
+        K_ = torch.tensor(K)
 
     # print('label size:', labels.size())
     if not alpha_ == 0.0:
@@ -180,16 +180,16 @@ def get_labels_sid(args, depth):
     beta = torch.tensor(beta)
     K = torch.tensor(K)
 
-    # if torch.cuda.is_available():
-    #     alpha = alpha.cuda()
-    #     beta = beta.cuda()
-    #     K = K.cuda()
+    if torch.cuda.is_available():
+        alpha = alpha.cuda()
+        beta = beta.cuda()
+        K = K.cuda()
     if not alpha == 0.0:
         labels = K * torch.log(depth / alpha) / torch.log(beta / alpha)
     else:
         labels = K * torch.log(depth) / torch.log(beta)
-    # if torch.cuda.is_available():
-    #     labels = labels.cuda()
+    if torch.cuda.is_available():
+        labels = labels.cuda()
     return labels.int()
 
 
