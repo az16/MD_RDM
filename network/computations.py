@@ -511,7 +511,6 @@ def get_depth_sid(args, labels):
     # print(depth.size())
     return depth.float()
 
-
 def get_labels_sid(args, depth):
     if args == 'kitti':
         alpha = 0.001

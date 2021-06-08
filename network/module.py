@@ -81,7 +81,7 @@ class RelativeDephModule(pl.LightningModule):
         component_target = cp.decompose_depth_map([], target, 7)[::-1]
         #optimize weight layer
         components, loss = cp.optimize_components(self.model.weight_layer, fine_detail_list, component_target)
-        #returned optimal candidates are recombined to final depth map
+        #returns optimal candidates are recombined to final depth map
         final = cp.recombination(components)
         return final,loss
     
