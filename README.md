@@ -15,19 +15,15 @@ This is a pytorch implementation of 'Monocular Depth Estimation Using Relative D
 - [x] Network propagation up to batch size 16 (tested) 
 # Finalizing Output
 - [x] Depth Map Decomposition (tested)
-- [x] Weight optimization for fine detail maps
-- [x] Decomposition of ground truth while propagating input through network
-- [x] optimization of dorn decoder components 
-- [x] Optimal Map Reconstruction (tested on its own)
+- [x] Weight optimization for fine detail maps (tested)
+- [x] Decomposition of ground truth while propagating input through network (tested)
+- [x] optimization of dorn decoder components (tested)
+- [x] Optimal Map Reconstruction (tested)
 # Training and Data
 - [x] Training cycle
 - [x] Dataloaders + Augmentation
-- [ ] Training
+- [ ] Training (in progress)
 # Debugging and current Issues
-## Debugging
-- [x] Embedded geometric mean into resize method (before only used regular pytorch resize)
-- [x] Eigenvector calculation: torch.lobgc method takes symmetric matrices as input --> our input is a reciprocal matrix so torch.eig is now used
-- [x] DORN loss adjusted to fit our depth maps
 ## Current Issues
-- [ ] Encoder uses conv layers --> cause negative values in tensor due to negative kernel weights --> influences the ordinal layers since they expect positive inputs   
-- [ ] torch.eig returns complex eigenvalues --> backward method does not support complex tensor types yet
+- [ ] Loss does not decrease, possible causes might be: Lloyd-Quantization, number of decoders/training procedure
+- [ ] Training time, could be reduced by adopting training procedure form creators' paper
