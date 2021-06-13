@@ -175,7 +175,7 @@ def matmul(t1, t2):
 def rmse(m1, m2):
     return torch.mean((m1-m2)**2)**0.5
 
-def als_step(ratings, fixed_tensor, regularization_term = 0.05, cuda=False):
+def als_step(ratings, fixed_tensor, cuda, regularization_term = 0.05):
         """
         when updating the user matrix,
         the item matrix is the fixed vector and vice versa
@@ -185,7 +185,7 @@ def als_step(ratings, fixed_tensor, regularization_term = 0.05, cuda=False):
         #print(torch.eye(fixed_tensor.shape[1]))
         eye = torch.eye(f_w)    
         if cuda:
-            eye.cuda()
+            eye=eye.cuda()
         A = matmul(fixed_tensor.view(f_b, f_w, f_h),fixed_tensor) + eye * regularization_term
         #print(A.shape)
         #print(ratings.shape, fixed_tensor.shape)
