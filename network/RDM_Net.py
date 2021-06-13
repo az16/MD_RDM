@@ -5,6 +5,7 @@ import numpy as np
 import scipy.io
 import network.computations as cp
 
+use_cuda = True
 class BaseModel(nn.Module):
     def load(self, path):
         """Load model from file.
@@ -54,7 +55,7 @@ class DepthEstimationNet(BaseModel):
         self.d_9 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=False, id=9, quant=self.quantizers)
         # self.d_10 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=False, id=10, quant=self.quantizers)
 
-        self.weight_layer = Weights(vector_sizes=[1,5,5,5,3,2,1,0], use_cuda=self.use_cuda)
+        self.weight_layer = Weights(vector_sizes=[1,5,5,5,3,2,1,0], use_cuda=use_cuda)
 
     def forward(self, x):
         #encoder propagation
@@ -86,7 +87,7 @@ class DepthEstimationNet(BaseModel):
         #1,6,7,8,9
         ## print("Encoder output: {0}".format(x))
 
-        if self.use_cuda:
+        if use_cuda:
             x.cuda()
         
 
