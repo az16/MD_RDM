@@ -47,7 +47,9 @@ def quadratic_als(sparse_m, cuda, n=3, limit = 100, debug = False):
     #q_s = 2**(2*n-2)
     p = torch.ones((B,p_s,1))
     q = torch.ones((B,p_s,1))
-    
+    if cuda:
+        p=p.cuda()
+        q=q.cuda()
     rmse_record = []
     vec_record = []
     rmse_record.append(rmse(matmul(p,q.view(B,1,p_s)), sparse))
@@ -113,6 +115,10 @@ def alternating_least_squares(sparse_m, n, cuda, limit = 100, debug=False):
     q_s = 2**(2*n-2)
     p = torch.ones((B,p_s,1))
     q = torch.ones((B,q_s,1))
+
+    if cuda:
+        p=p.cuda()
+        q=q.cuda()
     
     rmse_record = []
     vec_record = []
