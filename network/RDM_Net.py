@@ -19,7 +19,7 @@ class BaseModel(nn.Module):
         self.load_state_dict(parameters)
         """
 class DepthEstimationNet(BaseModel):
-    def __init__(self, use_cuda):
+    def __init__(self):
         super(DepthEstimationNet, self).__init__()
 
         """
@@ -34,7 +34,7 @@ class DepthEstimationNet(BaseModel):
             * id 5, 10 => 128x128 1 channel
         """
         #GPU
-        self.use_cuda = use_cuda
+        self.use_cuda = False
         #Quantizers for Lloyd quantization
         self.quantizers = Quantization()
         #Encoder part

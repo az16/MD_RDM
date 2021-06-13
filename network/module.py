@@ -27,9 +27,10 @@ class RelativeDephModule(pl.LightningModule):
         self.cuda = True
         print("Use cuda: {0}".format(self.cuda))
         if self.cuda:
-            self.model = DepthEstimationNet(self.cuda).cuda()
+            self.model = DepthEstimationNet().cuda()
+            self.model.cuda = True
         else:
-            self.model = DepthEstimationNet(self.cuda)
+            self.model = DepthEstimationNet()
 
         
 
