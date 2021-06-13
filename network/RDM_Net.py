@@ -1,11 +1,9 @@
 import torch
 import torch.nn as nn
-from torch.nn.modules import sparse, utils
 import torchvision
 import numpy as np
 import scipy.io
 import network.computations as cp
-from PIL import Image
 
 class BaseModel(nn.Module):
     def load(self, path):
@@ -196,17 +194,13 @@ class WSMLayer(nn.Module):
         out2_2 = self.conv2_2(out1_3)
         out_wsm_wx3 = self.wsm_wx3(out1_4)
         out_wsm_3xh = self.wsm_3xh(out1_5)
-
+        completion_horizontal=out_wsm_wx3
+        completion_vertical=out_wsm_3xh
         #complete wsm layer outputs 
-        completion_vertical = out_wsm_wx3
-        completion_horizontal = out_wsm_3xh
-        for i in range(out_wsm_wx3.shape[2]-1):
-            completion_vertical = torch.cat((completion_vertical, out_wsm_wx3),3)
-            i=+1
-        
-        for i in range(out_wsm_3xh.shape[3]-1):
-            completion_horizontal = torch.cat((completion_horizontal, out_wsm_3xh),2)
-            i=+1
+
+        completion_horizontal = completion_horizontal.repeat(1,1,1,completion_horizontal.shape[2])
+        completion_vertical = completion_vertical.repeat(1,1, completion_vertical.shape[3],1)
+     
         """
         # print(out1_1.shape)
         # print(out2_1.shape)
@@ -217,7 +211,6 @@ class WSMLayer(nn.Module):
         #concatenate output of wsm layers and convolution layers
         cat = torch.cat((out1_1, out2_1, out2_2, completion_vertical, completion_horizontal),1)
         ## print(cat.shape)
-
         return cat
 class Ordinal_Layer(nn.Module):
     def __init__(self, decoder_id, DORN, quantizer):
@@ -230,11 +223,11 @@ class Ordinal_Layer(nn.Module):
         B,C,H,W = d_3.size()
         size = H*W
         reshaped_d_3 = d_3.view(B, C, size)
-        inverse_reshaped = 1/reshaped_d_3
+        inverse_reshaped = torch.pow(reshaped_d_3, -1)
         #sparse_m = torch.zeros(B, size, size)
 
         #for i in range(B):
-        sparse_m = torch.matmul(reshaped_d_3.T, inverse_reshaped).view(B, size, size)
+        sparse_m = torch.matmul(reshaped_d_3.view(B, size, C), inverse_reshaped).view(B, size, size)
 
         depth_labels = torch.zeros(B, size, size, 40)
         relative_depth_map = self.LloydQuantization(depth_labels, sparse_m)
@@ -294,8 +287,7 @@ class Ordinal_Layer(nn.Module):
             for i in range(relative_depths.shape[0]):
                 relative_depths[i] = inv[int(indices[i])][0]
             return relative_depths.view(N, C, W)
-
-        
+      
     def DornOrdinalRegression(self, x):
         """
         :param x: N X H X W X C, N is batch_size, C is channels of features
@@ -527,18 +519,9 @@ def debug(container, id):
 
 
 if __name__ == "__main__":
-    inp = torch.randn((1, 1, 16, 16))
-    inp2 = torch.randn((1, 1, 8, 8))
+    inp = torch.randn((4, 3, 226, 226))
 
-    ord = Ordinal_Layer(3, True, Quantization())
-    r = ord.sparse_comparison_id(inp, inp2)
-    r2 = ord.sparse_comparison_id_2(inp, inp2)
-    print(r[0])
-    print(r2[0])
-    print(torch.eq(r,r2))
-   #print(torch.eq(r[0],r2[0]))
-    #d_pred, l_pred = ord.DornOrdinalRegression(inp)
-    #print(d_pred)
-  
+    model = DepthEstimationNet(use_cuda=False)
+    r = model(inp)
 
 

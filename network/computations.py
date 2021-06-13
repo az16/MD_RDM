@@ -285,7 +285,7 @@ def get_resized_area( r_s, r_e, c_s, c_e, dn_1):
     #result = torch.reshape(result,(dn_1.shape[0], dn_1.shape[1], dn_1.shape[2]*dn_1.shape[3]))
     # # print("Result")
     #print(result)
-    return result.view(1, 1, dn_1.shape[2]*dn_1.shape[3])
+    return result.view(dn_1.shape[0], 1, dn_1.shape[2]*dn_1.shape[3])
 
 def find_nans(container):
     """
