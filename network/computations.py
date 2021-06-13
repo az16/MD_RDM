@@ -57,11 +57,11 @@ def quadratic_als(sparse_m, cuda, n=3, limit = 100, debug = False):
     #training loop
     iteration = 0 
     while(iteration < limit):
-        p = als_step(sparse, q)
+        p = als_step(sparse, q, cuda=cuda)
         rmse_record.append(rmse(matmul(p,q.view(B,1,p_s)), sparse))
         vec_record.append(p)
 
-        q = als_step(sparse.view(B,W,H), p)
+        q = als_step(sparse.view(B,W,H), p, cuda=cuda)
         #rmse_record.append(rmse(matmul(p,q.view(B,1,p_s)), sparse))
 
         if debug:
@@ -128,11 +128,11 @@ def alternating_least_squares(sparse_m, n, cuda, limit = 100, debug=False):
     iteration = 0 
     while(iteration < limit):
         
-        p = als_step(sparse, q)
+        p = als_step(sparse, q, cuda=cuda)
         rmse_record.append(rmse(matmul(p,q.view(B,1,q_s)), sparse))
         vec_record.append(p)
 
-        q = als_step(sparse.view(B,W,H), p)
+        q = als_step(sparse.view(B,W,H), p, cuda=cuda)
         #rmse_record.append(rmse(matmul(p,q.view(B,1,q_s)), sparse))
 
         if debug:
@@ -175,7 +175,7 @@ def matmul(t1, t2):
 def rmse(m1, m2):
     return torch.mean((m1-m2)**2)**0.5
 
-def als_step(ratings, fixed_tensor, regularization_term = 0.05):
+def als_step(ratings, fixed_tensor, regularization_term = 0.05, cuda=False):
         """
         when updating the user matrix,
         the item matrix is the fixed vector and vice versa
@@ -183,7 +183,10 @@ def als_step(ratings, fixed_tensor, regularization_term = 0.05):
         f_b, f_h, f_w = fixed_tensor.size()
         r_b, r_h, r_w = ratings.size()
         #print(torch.eye(fixed_tensor.shape[1]))
-        A = matmul(fixed_tensor.view(f_b, f_w, f_h),fixed_tensor) + torch.eye(f_w) * regularization_term
+        eye = torch.eye(f_w)    
+        if cuda:
+            eye.cuda()
+        A = matmul(fixed_tensor.view(f_b, f_w, f_h),fixed_tensor) + eye * regularization_term
         #print(A.shape)
         #print(ratings.shape, fixed_tensor.shape)
         b = ratings@fixed_tensor
