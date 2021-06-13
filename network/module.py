@@ -24,13 +24,14 @@ class RelativeDephModule(pl.LightningModule):
                                                     num_workers=1, 
                                                     pin_memory=True) 
         self.criterion = torch.nn.MSELoss()
+        self.cuda = not (gpu == 0)
         print("Use cuda: {0}".format(gpu))
-        if gpu:
-            self.model = DepthEstimationNet(gpu).cuda()
+        if self.cuda:
+            self.model = DepthEstimationNet(self.cuda).cuda()
         else:
-            self.model = DepthEstimationNet(gpu)
+            self.model = DepthEstimationNet(self.cuda)
 
-        self.cuda = gpu
+        
 
     def configure_optimizers(self):
         train_param = self.model.parameters()
