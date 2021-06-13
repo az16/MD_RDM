@@ -35,7 +35,7 @@ def principal_eigen(p_3):
     
     return r
 
-def quadratic_als(sparse_m, n=3, limit = 100, debug = False):
+def quadratic_als(sparse_m, cuda, n=3, limit = 100, debug = False):
     B, H, W = sparse_m.size()
     out_size = 2**n
     filled = torch.zeros(B,1,out_size,out_size)
@@ -73,7 +73,10 @@ def quadratic_als(sparse_m, n=3, limit = 100, debug = False):
             #print(p.view(1, out_size, out_size))
 
         filled[b] = p.view(1,out_size,out_size)
-    return filled.cuda() 
+
+    if cuda:
+        return filled.cuda() 
+    return filled 
 
 
 def get_eigenvector_from_eigenvalue(e, v):
@@ -84,7 +87,7 @@ def get_eigenvector_from_eigenvalue(e, v):
     print(corresponding_vector)
     return torch.abs(corresponding_vector)
 
-def alternating_least_squares(sparse_m, n, limit = 100, debug=False):
+def alternating_least_squares(sparse_m, n, cuda, limit = 100, debug=False):
     """
     Implemetation of ALS algorithm to approximate the comparison matrix
 
@@ -95,6 +98,7 @@ def alternating_least_squares(sparse_m, n, limit = 100, debug=False):
     returns relative depth map from filled up matrix
     """
     B, H, W = sparse_m.size()
+    sparse_m = sparse_m.float()
     out_size = 2**n
     filled = torch.zeros(B,1,out_size,out_size)
     #go through batch and do als for each comparison matrix
@@ -129,7 +133,11 @@ def alternating_least_squares(sparse_m, n, limit = 100, debug=False):
             print(quick_gm(p))
 
         filled[b] = p.view(1,out_size,out_size)
-    return filled.cuda() 
+
+    if cuda:
+        return filled.cuda() 
+    return filled 
+    
 
 def min_eps(loss, eps=0.000001):
     """
@@ -231,7 +239,7 @@ def get_size(id):
     elif id == 7:
         return 128,64
 
-def get_resized_area(batch, r_s, r_e, c_s, c_e, dn_1):
+def get_resized_area2(batch, r_s, r_e, c_s, c_e, dn_1):
     """
     r_s - row start index
     r_e - row end index
@@ -244,15 +252,45 @@ def get_resized_area(batch, r_s, r_e, c_s, c_e, dn_1):
     kernel_r1 = dn_1[batch][0][r_s][c_s:c_e]
     kernel_r2 = dn_1[batch][0][r_s+1][c_s:c_e]
     kernel_r3 = dn_1[batch][0][r_e][c_s:c_e]
+    #print(kernel_r1, kernel_r2, kernel_r3)
 
     result = torch.ones((1, dn_1.shape[1], dn_1.shape[2],dn_1.shape[3]))
-    result = result.cuda()
+    if dn_1.is_cuda:
+        result = result.cuda()
     result[0][0][r_s][c_s:c_e] = kernel_r1
     result[0][0][r_s+1][c_s:c_e] = kernel_r2
     result[0][0][r_e][c_s:c_e] = kernel_r3
     #result = torch.reshape(result,(dn_1.shape[0], dn_1.shape[1], dn_1.shape[2]*dn_1.shape[3]))
     # # print("Result")
-    # # print(result)
+    # print(result)
+    return result.view(1, 1, dn_1.shape[2]*dn_1.shape[3])
+
+def get_resized_area( r_s, r_e, c_s, c_e, dn_1):
+    """
+    r_s - row start index
+    r_e - row end index
+    c_s - column start index
+    c_e - column end index
+    dn_1 - depth map of size n-1
+
+    returns the 3x3 area in the previous depth map
+    """
+    #print(dn_1)
+    kernel_r1 = dn_1[:, :, r_s, c_s:c_e]
+    kernel_r2 = dn_1[:, :, r_s+1, c_s:c_e]
+    kernel_r3 = dn_1[:, :, r_e, c_s:c_e]
+    #print(kernel_r1, kernel_r2, kernel_r3)
+    result = torch.ones_like(dn_1)
+    result[:, :, r_s, c_s:c_e] = kernel_r1
+    result[:, :, r_s+1, c_s:c_e] = kernel_r2
+    result[:, :, r_e, c_s:c_e] = kernel_r3
+    #result = torch.cat((kernel_r1, kernel_r2, kernel_r3), 2)
+    #print(result.shape)
+    if dn_1.is_cuda:
+        result = result.cuda()
+    #result = torch.reshape(result,(dn_1.shape[0], dn_1.shape[1], dn_1.shape[2]*dn_1.shape[3]))
+    # # print("Result")
+    #print(result)
     return result.view(1, 1, dn_1.shape[2]*dn_1.shape[3])
 
 def find_nans(container):
@@ -365,7 +403,7 @@ def recombination(list_of_components, n=7):
     optimal_map = d_0 + result 
     return optimal_map
 
-def relative_fine_detail_matrix(fine_detail_rows):
+def relative_fine_detail_matrix(fine_detail_rows, cuda):
     """
     fine_detail_row - list of fine detail lists obtained from relative depth maps
     returns - matrix of relative fine detail components
@@ -379,7 +417,7 @@ def relative_fine_detail_matrix(fine_detail_rows):
             slots[idx].append(fine_detail_map)
     
     #create matrix from candidates
-    fine_detail_matrices = [make_matrix(x) for x in slots]
+    fine_detail_matrices = [make_matrix(x, cuda) for x in slots]
 
     return fine_detail_matrices
 
@@ -403,7 +441,7 @@ def idx_from_size(fine_detail_map):
     elif H == 128:
         return 7
 
-def make_matrix(list_of_candidates):
+def make_matrix(list_of_candidates, cuda):
     """
     Method that reshapes each candidate into a column vector a_i and horizontally
     stacks them to create a fine detail matrix A where each column is a fine detail map a_i.
@@ -412,8 +450,18 @@ def make_matrix(list_of_candidates):
     returns - matrix of all fine detail components
     """
     B,C,H,W = list_of_candidates[0].size()
-    candidates = [x.view(B,1,C*H*W) for x in list_of_candidates]
-    return torch.cat(candidates, dim=1)
+    
+    #print(cuda)
+    #print(list_of_candidates)
+    candidates = []
+    if cuda:
+        candidates = [x.view(B,1,C*H*W).cuda() for x in list_of_candidates]
+    else:
+        candidates = [x.view(B,1,C*H*W) for x in list_of_candidates]
+    #print(candidates)
+    result = torch.cat(candidates, dim=1)
+    #print(result.is_cuda)
+    return result
 
 def optimize_components_old(weights, yhat, y, lr=0.001):
     w = weights.weight_list
@@ -428,11 +476,11 @@ def optimize_components_old(weights, yhat, y, lr=0.001):
     
     return pred
 
-def optimize_components(weights, yhat, y):
+def optimize_components(weights, yhat, y, cuda):
     w = weights.weight_list
     #debug_print_list(w)
-    pred = make_pred(w, yhat)
-    loss = squared_err(pred,y)
+    pred = make_pred(w, yhat, cuda)
+    loss = squared_err(pred,y, cuda)
     #optimizer = torch.optim.SGD(params=w,lr=learning_rate)
     #optimizer.zero_grad()
     # loss = [x.backward() for x in loss]
@@ -440,23 +488,31 @@ def optimize_components(weights, yhat, y):
 
     return pred, torch.mean(torch.as_tensor(loss))
 
-def make_pred(w, A):
+def make_pred(w, A, cuda):
     for i in range(len(A)):
         B, M = A[i].shape[0], A[i].shape[2]
-        tmp = torch.zeros((B, M, 1))
-
-        for b in range(A[i].shape[0]):
-           tmp[b]  = A[i][b].T.float()@w[i].float().cuda() 
-        A[i] = tmp.view(B,1,int(math.sqrt(M)),int(math.sqrt(M))).cuda() 
+        if cuda:
+            tmp = torch.zeros((B, M, 1)).cuda()
+            for b in range(A[i].shape[0]):
+                tmp[b]  = A[i][b].T.float()@w[i].float().cuda() 
+            A[i] = tmp.view(B,1,int(math.sqrt(M)),int(math.sqrt(M))).cuda()
+        else:
+            tmp = torch.zeros((B, M, 1))
+            for b in range(A[i].shape[0]):
+                tmp[b]  = A[i][b].T.float()@w[i].float() 
+            A[i] = tmp.view(B,1,int(math.sqrt(M)),int(math.sqrt(M)))
     return A
 
-def squared_err(yhat,y):
+def squared_err(yhat,y, cuda):
     sqr_err_list = []
     for i in range(7):
         #print(torch.min(yhat[i]), torch.min(y[i]))
         #print(torch.max(yhat[i]), torch.max(y[i]))
         # if i>0:
-        sqr_err_list.append(torch.nn.MSELoss()(yhat[i],y[i]).cuda())
+        if cuda:
+            sqr_err_list.append(torch.nn.MSELoss()(yhat[i],y[i]).cuda())
+        else:
+            sqr_err_list.append(torch.nn.MSELoss()(yhat[i],y[i]))
 
     return sqr_err_list
 
@@ -548,21 +604,7 @@ def get_labels_sid(args, depth):
     return labels.int()
 
 if __name__ == "__main__":
-    test = torch.abs(torch.randn((1,2,2)))
-    test = test.view(1,1,2*2)
-    test = test
-    inv = 1/test
-    #print(test, inv)
-    inp = torch.zeros((1, 4, 4))
-    for b in range(test.shape[0]):
-        inp[b] = torch.matmul(test[b].T, inv[b])
-
-    #print(torch.tril(inp))
-    #print(torch.triu(inp))
-    #print(torch.trace(inp[0]))
-    print(inp)
-    #result = principal_eigen(inp)
-    result = quadratic_als(inp, n=1, debug=True)
-    print("Final output: {0}".format(result))
+    test = torch.abs(torch.randn((4,256,64)))
+    r = alternating_least_squares(test,4,False, debug=True)
     
 

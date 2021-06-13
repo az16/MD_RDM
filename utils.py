@@ -117,7 +117,7 @@ def save_image(img_merge, filename):
     img_merge.save(filename)
 
 
-def get_depth_sid(args, labels):
+def get_depth_sid(args, labels, cuda = False):
     if args == 'kitti':
         min = 0.001
         max = 80.0
@@ -137,7 +137,7 @@ def get_depth_sid(args, labels):
     else:
         print('No Dataset named as ', args.dataset)
 
-    if torch.cuda.is_available():
+    if cuda:
         alpha_ = torch.tensor(min).cuda()
         beta_ = torch.tensor(max).cuda()
         K_ = torch.tensor(K).cuda()
@@ -156,7 +156,7 @@ def get_depth_sid(args, labels):
     return depth.float()
 
 
-def get_labels_sid(args, depth):
+def get_labels_sid(args, depth, cuda=False):
     if args == 'kitti':
         alpha = 0.001
         beta = 80.0
@@ -180,7 +180,7 @@ def get_labels_sid(args, depth):
     beta = torch.tensor(beta)
     K = torch.tensor(K)
 
-    if torch.cuda.is_available():
+    if cuda:
         alpha = alpha.cuda()
         beta = beta.cuda()
         K = K.cuda()
@@ -188,7 +188,7 @@ def get_labels_sid(args, depth):
         labels = K * torch.log(depth / alpha) / torch.log(beta / alpha)
     else:
         labels = K * torch.log(depth) / torch.log(beta)
-    if torch.cuda.is_available():
+    if cuda:
         labels = labels.cuda()
     return labels.int()
 

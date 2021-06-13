@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.nn.modules import utils
+from torch.nn.modules import sparse, utils
 import torchvision
 import numpy as np
 import scipy.io
@@ -21,7 +21,7 @@ class BaseModel(nn.Module):
         self.load_state_dict(parameters)
         """
 class DepthEstimationNet(BaseModel):
-    def __init__(self):
+    def __init__(self, use_cuda):
         super(DepthEstimationNet, self).__init__()
 
         """
@@ -35,7 +35,8 @@ class DepthEstimationNet(BaseModel):
             * id 4, 9 => 64x64 1 channel
             * id 5, 10 => 128x128 1 channel
         """
-
+        #GPU
+        self.use_cuda = use_cuda
         #Quantizers for Lloyd quantization
         self.quantizers = Quantization()
         #Encoder part
@@ -55,7 +56,7 @@ class DepthEstimationNet(BaseModel):
         self.d_9 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=False, id=9, quant=self.quantizers)
         # self.d_10 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=False, id=10, quant=self.quantizers)
 
-        self.weight_layer = Weights([1,5,5,5,3,2,1,0])
+        self.weight_layer = Weights(vector_sizes=[1,5,5,5,3,2,1,0], use_cuda=use_cuda)
 
     def forward(self, x):
         #encoder propagation
@@ -86,7 +87,11 @@ class DepthEstimationNet(BaseModel):
         #according to the authors, optimal performance is reached with decoders
         #1,6,7,8,9
         ## print("Encoder output: {0}".format(x))
-        x.cuda()
+
+        if self.use_cuda:
+            x.cuda()
+        
+
         x_d1, ord_labels = self.d_1(x)#regular
         #print(x_d1)
         x_d6 = self.d_6(x)#relative
@@ -96,14 +101,15 @@ class DepthEstimationNet(BaseModel):
         x_d9 = self.d_9(x)#relative
         # print("D1 output before decomposition: {0}".format(x_d1))
         #get fine-detail maps for each depth map
+        #print(x_d1,x_d6, x_d7, x_d8, x_d9)
         f_d1 = cp.decompose_depth_map([], x_d1, 3)[::-1]
         f_d6 = cp.decompose_depth_map([], x_d6, 3, relative_map=True)[::-1]
         f_d7 = cp.decompose_depth_map([], x_d7, 4, relative_map=True)[::-1]
         f_d8 = cp.decompose_depth_map([], x_d8, 5, relative_map=True)[::-1]
         f_d9 = cp.decompose_depth_map([], x_d9, 6, relative_map=True)[::-1]
-
+        #print(f_d1, f_d6, f_d7, f_d8, f_d9)
         #bring into matrix form
-        y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9])
+        y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9], self.use_cuda)
         
         return y_hat, x_d1, ord_labels
 class Decoder(nn.Module):
@@ -129,10 +135,10 @@ class Decoder(nn.Module):
         if self.id > 5:
             x = self.conv1(x)#make feature map have only one channel
         if self.id == 1:
+
             x = self.conv2(x)
-
         x = self.ord_layer(x)
-
+        #print(x)
         return x
 class WSMLayer(nn.Module):
     def __init__(self, in_channels, kernel_size, stride, layer_id):
@@ -225,10 +231,10 @@ class Ordinal_Layer(nn.Module):
         size = H*W
         reshaped_d_3 = d_3.view(B, C, size)
         inverse_reshaped = 1/reshaped_d_3
-        sparse_m = torch.zeros(B, size, size)
+        #sparse_m = torch.zeros(B, size, size)
 
-        for i in range(B):
-            sparse_m[i] = torch.matmul(reshaped_d_3[i].T, inverse_reshaped[i])
+        #for i in range(B):
+        sparse_m = torch.matmul(reshaped_d_3.T, inverse_reshaped).view(B, size, size)
 
         depth_labels = torch.zeros(B, size, size, 40)
         relative_depth_map = self.LloydQuantization(depth_labels, sparse_m)
@@ -239,22 +245,24 @@ class Ordinal_Layer(nn.Module):
         B,C,H,W = dn.size()
         H_1,W_1 = int(H/2),int(W/2)
         dn = dn.view(B,H,W)
-        sparse_m = torch.zeros(B,H,W,H_1*W_1)
-        for b in range(B):
-            for index_row in range(H):
-                    for index_col in range(W):
-                        index_resized_row = np.floor(index_row/2)
-                        index_resized_col = np.floor(index_col/2)
-                        index_row_start = int(min(max(index_resized_row, 0), dn_1.shape[2]-3))
-                        index_row_end = index_row_start+2
-                        index_col_start = int(min(max(index_resized_col, 0), dn_1.shape[3]-3))
-                        index_col_end = index_col_start+3
-                        comparison_area = cp.get_resized_area(b, index_row_start, index_row_end, index_col_start, index_col_end, dn_1) 
-                        tmp = dn[b][index_row][index_col]*torch.pow(comparison_area[0][0],-1)
-                        #print(tmp)
-                        sparse_m[b][index_row][index_col] = tmp
-
-        sparse_m = sparse_m.view(B,H*W,H_1*W_1)
+        test = []
+        #sparse_m = torch.zeros(B,H*W,H_1*W_1)
+        #for b in range(B):
+        for index_row in range(H):
+                for index_col in range(W):
+                    index_resized_row = np.floor(index_row/2)
+                    index_resized_col = np.floor(index_col/2)
+                    index_row_start = int(min(max(index_resized_row, 0), dn_1.shape[2]-3))
+                    index_row_end = index_row_start+2
+                    index_col_start = int(min(max(index_resized_col, 0), dn_1.shape[3]-3))
+                    index_col_end = index_col_start+3
+                    comparison_area = cp.get_resized_area(index_row_start, index_row_end, index_col_start, index_col_end, dn_1) 
+                    #print((dn[:, index_row, index_col].view(B,1,1)*torch.pow(comparison_area,-1))[0][0])
+                    #return
+                    test.append(dn[:, index_row, index_col].view(B,1,1)*torch.pow(comparison_area,-1))
+                    #print(tmp.shape)
+                    #sparse_m[:, index_row*index_col, :] = tmp[:, 0, :]
+        sparse_m = torch.cat(test,1)
         depth_labels = torch.zeros(B,H*W,H_1*W_1, 40) 
         relative_depth_map = self.LloydQuantization(depth_labels, sparse_m, id=self.id)
         ## print(relative_depth_map.shape)
@@ -338,7 +346,7 @@ class Ordinal_Layer(nn.Module):
                 #print("D6 input: {0}".format(x))
                 x = self.sparse_comparison_v1(x)
                 #print("D6 comparison output: {0}".format(x))
-                x = cp.quadratic_als(x)
+                x = cp.quadratic_als(x, cuda=x.is_cuda)
                 #print("D6 principal_eigenvector method output: {0}".format(x))
                 # print(x.shape)
                 # print("D6 done.")
@@ -352,7 +360,7 @@ class Ordinal_Layer(nn.Module):
                 #print("D7 input as d_n-1: {0}".format(dn_1))
                 x = self.sparse_comparison_id(dn, dn_1)
                 #print("D7 output after comparison: {0}".format(x))
-                filled_map = cp.alternating_least_squares(sparse_m=x, n=4, limit=100)
+                filled_map = cp.alternating_least_squares(sparse_m=x, n=4, limit=100, cuda=x.is_cuda)
                 # print(filled_map.shape)
                 # print("D7 done.")
                 return filled_map
@@ -366,7 +374,7 @@ class Ordinal_Layer(nn.Module):
                 dn_pages, dn_1_pages = cp.split_matrix(dn, dn_1) #two lists of split pages (same length) from dn and dn_1
                 zipped = zip(dn_pages,dn_1_pages)
                 sparse_pages = [self.sparse_comparison_id(z[0], z[1]) for z in zipped]
-                als_filled_pages = [cp.alternating_least_squares(sparse, n=4, limit=100) for sparse in sparse_pages]
+                als_filled_pages = [cp.alternating_least_squares(sparse, n=4, limit=100, cuda=x.is_cuda) for sparse in sparse_pages]
                 full_map = cp.reconstruct(als_filled_pages)
                 # print(full_map.shape)
                 # print("D{0} done.".format(self.id+3))
@@ -418,8 +426,8 @@ class Quantization():
         elif id == 7:
             return 128
 class Weights:
-    def __init__(self, vector_sizes):
-        self.weight_list = self._make_weightvector_list_(vector_sizes)
+    def __init__(self, vector_sizes, use_cuda):
+        self.weight_list = self._make_weightvector_list_(vector_sizes, use_cuda)
 
     def update(self, weight_index, lr, gradient):
         self.weight_list[weight_index] = self.weight_list[weight_index] - lr * gradient
@@ -427,8 +435,11 @@ class Weights:
     def get(self, index):
         return self.weight_list[index]
 
-    def _make_weightvector_list_(self, sizes):
-        return [torch.ones((size,1), requires_grad=True).cuda()   for size in sizes]
+    def _make_weightvector_list_(self, sizes, use_cuda=False):
+        if use_cuda:
+            return [torch.ones((size,1), requires_grad=True).cuda() for size in sizes]
+        
+        return [torch.ones((size,1), requires_grad=True) for size in sizes]
 
 def _make_wsm_vertical_(in_channels, out_channels, kernel_size, stride):
     """Stride has to be chosen in a way that only one convolution is performed
@@ -516,11 +527,18 @@ def debug(container, id):
 
 
 if __name__ == "__main__":
-    inp = torch.randn((1, 8, 8, 8))
+    inp = torch.randn((1, 1, 16, 16))
+    inp2 = torch.randn((1, 1, 8, 8))
+
     ord = Ordinal_Layer(3, True, Quantization())
-    d_pred, l_pred = ord.DornOrdinalRegression(inp)
-    print(d_pred)
-    d = cp.get_depth_sid("nyu", d_pred)
-    print(d)
+    r = ord.sparse_comparison_id(inp, inp2)
+    r2 = ord.sparse_comparison_id_2(inp, inp2)
+    print(r[0])
+    print(r2[0])
+    print(torch.eq(r,r2))
+   #print(torch.eq(r[0],r2[0]))
+    #d_pred, l_pred = ord.DornOrdinalRegression(inp)
+    #print(d_pred)
+  
 
 

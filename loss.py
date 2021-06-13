@@ -14,7 +14,7 @@ class Ordinal_Loss():
     def __init__(self):
         self.loss = 0.0
 
-    def calc(self, ord_labels, target):
+    def calc(self, ord_labels, target, cuda):
         """
         :param ord_labels: ordinal labels for each position of Image I.
         :param target:     the ground_truth discreted using SID strategy.
@@ -30,7 +30,7 @@ class Ordinal_Loss():
         self.loss = 0.0
 
         # faster version
-        if torch.cuda.is_available():
+        if cuda:
             K = torch.zeros((N, C, H, W), dtype=torch.int).cuda()
             for i in range(ord_num):
                 K[:, i, :, :] = K[:, i, :, :] + i * torch.ones((N, H, W), dtype=torch.int).cuda()
@@ -43,7 +43,7 @@ class Ordinal_Loss():
         mask_1 = (K > target).detach()
 
         one = torch.ones(ord_labels[mask_1].size())
-        if torch.cuda.is_available():
+        if cuda:
             one = one.cuda()
 
         self.loss += torch.sum(torch.log(torch.clamp(ord_labels[mask_0], min=1e-8, max=1e8).float())) \

@@ -69,7 +69,7 @@ if __name__ == "__main__":
             'gpu_capability': torch.cuda.get_device_capability(0) if use_gpu else None
             })
 
-    module = RelativeDephModule(path=args.nyu_path, batch_size=args.batch_size, learning_rate=args.learning_rate, worker=args.worker, metrics=args.metrics)
+    module = RelativeDephModule(path=args.nyu_path, batch_size=args.batch_size, learning_rate=args.learning_rate, worker=args.worker, metrics=args.metrics, gpu=use_gpu)
 
     if args.find_learning_rate:
         # Run learning rate finder

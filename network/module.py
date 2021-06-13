@@ -1,5 +1,6 @@
 import torch
 import pytorch_lightning as pl
+from torch import cuda
 from metrics import MetricLogger
 from network.RDM_Net import DepthEstimationNet
 from network import computations as cp
@@ -8,7 +9,7 @@ import loss as l
 from dataloaders.nyu_dataloader import NYUDataset
 
 class RelativeDephModule(pl.LightningModule):
-    def __init__(self, path, batch_size, learning_rate, worker, metrics, *args, **kwargs):
+    def __init__(self, path, batch_size, learning_rate, worker, metrics, gpu, *args, **kwargs):
         super().__init__()
         self.save_hyperparameters()
         self.metric_logger = MetricLogger(metrics=metrics, module=self)
@@ -23,7 +24,13 @@ class RelativeDephModule(pl.LightningModule):
                                                     num_workers=1, 
                                                     pin_memory=True) 
         self.criterion = torch.nn.MSELoss()
-        self.model = DepthEstimationNet().cuda()
+        print("Use cuda: {0}".format(gpu))
+        if gpu:
+            self.model = DepthEstimationNet(gpu).cuda()
+        else:
+            self.model = DepthEstimationNet(gpu)
+
+        self.cuda = gpu
 
     def configure_optimizers(self):
         train_param = self.model.parameters()
@@ -37,7 +44,12 @@ class RelativeDephModule(pl.LightningModule):
         return [optimizer], [scheduler]
 
     def forward(self, x):
-        fine_details, d_pred, l_pred = self.model(x.cuda())
+
+        if self.cuda:
+            x=x.cuda()
+
+        fine_details, d_pred, l_pred = self.model(x)
+
         return fine_details, d_pred, l_pred
 
     def train_dataloader(self):
@@ -49,14 +61,18 @@ class RelativeDephModule(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
-        #print(x.dtype, y.dtype)
-        y = cp.resize(y,128).cuda() 
-        fine_details, ord_depth_pred, ord_label_pred = self(x.cuda())
+        print(x.dtype, y.dtype)
+        y = cp.resize(y,128)
+        if self.cuda:
+            y = y.cuda() 
+            x = x.cuda()
+            
+        fine_details, ord_depth_pred, ord_label_pred = self(x)
 
         final_depth, fine_detail_loss = self.compute_final_depth(fine_details, y)
         #print(torch.isnan(final_depth).any())
         ord_y = self.compute_ordinal_target(ord_depth_pred, y)
-        ord_loss = l.Ordinal_Loss().calc(ord_label_pred, ord_y)
+        ord_loss = l.Ordinal_Loss().calc(ord_label_pred, ord_y, cuda=self.cuda)
 
         mse = self.criterion(final_depth, y)
         loss_all = mse + ord_loss + fine_detail_loss
@@ -69,8 +85,12 @@ class RelativeDephModule(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
-        y = cp.resize(y,128).cuda()
-        fine_details, _, _ = self(x.cuda())
+        y = cp.resize(y,128)
+        if self.cuda:
+            y = y.cuda() 
+            x = x.cuda()
+            
+        fine_details, _, _ = self(x)
 
         y_hat, _ = self.compute_final_depth(fine_details, y)
 
@@ -80,7 +100,7 @@ class RelativeDephModule(pl.LightningModule):
         #decompose target map
         component_target = cp.decompose_depth_map([], target, 7)[::-1]
         #optimize weight layer
-        components, loss = cp.optimize_components(self.model.weight_layer, fine_detail_list, component_target)
+        components, loss = cp.optimize_components(self.model.weight_layer, fine_detail_list, component_target, self.cuda)
         #returns optimal candidates are recombined to final depth map
         final = cp.recombination(components)
         return final,loss
@@ -88,6 +108,8 @@ class RelativeDephModule(pl.LightningModule):
     def compute_ordinal_target(self, ord_pred, target):
         #resize target to correct size
         target = cp.resize(target, ord_pred.shape[2])
+        if self.cuda:
+            target = target.cuda()
         #transform with ordinal regression so it can be compared
-        ord_target = u.get_labels_sid("nyu", target)
+        ord_target = u.get_labels_sid("nyu", target, cuda=self.cuda)
         return ord_target
