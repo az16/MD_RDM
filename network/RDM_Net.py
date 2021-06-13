@@ -35,7 +35,6 @@ class DepthEstimationNet(BaseModel):
             * id 5, 10 => 128x128 1 channel
         """
         #GPU
-        self.use_cuda = False
         #Quantizers for Lloyd quantization
         self.quantizers = Quantization()
         #Encoder part

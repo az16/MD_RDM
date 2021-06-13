@@ -8,6 +8,7 @@ import utils as u
 import loss as l
 from dataloaders.nyu_dataloader import NYUDataset
 
+is_cuda=True
 class RelativeDephModule(pl.LightningModule):
     def __init__(self, path, batch_size, learning_rate, worker, metrics, *args, **kwargs):
         super().__init__()
@@ -24,11 +25,9 @@ class RelativeDephModule(pl.LightningModule):
                                                     num_workers=1, 
                                                     pin_memory=True) 
         self.criterion = torch.nn.MSELoss()
-        self.cuda = True
-        print("Use cuda: {0}".format(self.cuda))
-        if self.cuda:
+        print("Use cuda: {0}".format(is_cuda))
+        if is_cuda:
             self.model = DepthEstimationNet().cuda()
-            self.model.cuda = True
         else:
             self.model = DepthEstimationNet()
 
@@ -47,7 +46,7 @@ class RelativeDephModule(pl.LightningModule):
 
     def forward(self, x):
 
-        if self.cuda:
+        if is_cuda:
             x=x.cuda()
 
         fine_details, d_pred, l_pred = self.model(x)
@@ -65,7 +64,7 @@ class RelativeDephModule(pl.LightningModule):
         x, y = batch
         print(x.dtype, y.dtype)
         y = cp.resize(y,128)
-        if self.cuda:
+        if is_cuda:
             y = y.cuda() 
             x = x.cuda()
             
@@ -74,7 +73,7 @@ class RelativeDephModule(pl.LightningModule):
         final_depth, fine_detail_loss = self.compute_final_depth(fine_details, y)
         #print(torch.isnan(final_depth).any())
         ord_y = self.compute_ordinal_target(ord_depth_pred, y)
-        ord_loss = l.Ordinal_Loss().calc(ord_label_pred, ord_y, cuda=self.cuda)
+        ord_loss = l.Ordinal_Loss().calc(ord_label_pred, ord_y, cuda=is_cuda)
 
         mse = self.criterion(final_depth, y)
         loss_all = mse + ord_loss + fine_detail_loss
@@ -88,7 +87,7 @@ class RelativeDephModule(pl.LightningModule):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
         y = cp.resize(y,128)
-        if self.cuda:
+        if is_cuda:
             y = y.cuda() 
             x = x.cuda()
             
@@ -102,7 +101,7 @@ class RelativeDephModule(pl.LightningModule):
         #decompose target map
         component_target = cp.decompose_depth_map([], target, 7)[::-1]
         #optimize weight layer
-        components, loss = cp.optimize_components(self.model.weight_layer, fine_detail_list, component_target, self.cuda)
+        components, loss = cp.optimize_components(self.model.weight_layer, fine_detail_list, component_target, is_cuda)
         #returns optimal candidates are recombined to final depth map
         final = cp.recombination(components)
         return final,loss
@@ -110,8 +109,8 @@ class RelativeDephModule(pl.LightningModule):
     def compute_ordinal_target(self, ord_pred, target):
         #resize target to correct size
         target = cp.resize(target, ord_pred.shape[2])
-        if self.cuda:
+        if is_cuda:
             target = target.cuda()
         #transform with ordinal regression so it can be compared
-        ord_target = u.get_labels_sid("nyu", target, cuda=self.cuda)
+        ord_target = u.get_labels_sid("nyu", target, cuda=is_cuda)
         return ord_target
