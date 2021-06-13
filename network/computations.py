@@ -191,7 +191,7 @@ def als_step(ratings, fixed_tensor, cuda, regularization_term = 0.05):
         #print(ratings.shape, fixed_tensor.shape)
         b = ratings@fixed_tensor
         #print(b.size())
-        A_inv = torch.linalg.inv(A)
+        A_inv = torch.inverse(A)
         solve_vecs = b@A_inv
         return solve_vecs
 
