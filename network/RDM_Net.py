@@ -346,7 +346,7 @@ class Ordinal_Layer(nn.Module):
                 #print("D6 input: {0}".format(x))
                 x = self.sparse_comparison_v1(x)
                 #print("D6 comparison output: {0}".format(x))
-                x = cp.quadratic_als(x, cuda=x.is_cuda)
+                x = cp.quadratic_als(x, cuda=x.is_cuda, n=3)
                 #print("D6 principal_eigenvector method output: {0}".format(x))
                 # print(x.shape)
                 # print("D6 done.")

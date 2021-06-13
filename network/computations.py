@@ -37,42 +37,46 @@ def principal_eigen(p_3):
 
 def quadratic_als(sparse_m, cuda, n=3, limit = 100, debug = False):
     B, H, W = sparse_m.size()
+    sparse_m = sparse_m.float()
     out_size = 2**n
-    filled = torch.zeros(B,1,out_size,out_size)
     #go through batch and do als for each comparison matrix
-    for b in range(B):
-        sparse = sparse_m[b]
-        p = torch.rand((2**(2*n),1))
-        q = torch.rand((2**(2*n),1))
-        
-        rmse_record = []
+    #for b in range(B):
+    sparse = sparse_m
+    p_s = 2**(2*n)
+    #print(p_s,n)
+    #q_s = 2**(2*n-2)
+    p = torch.ones((B,p_s,1))
+    q = torch.ones((B,p_s,1))
+    
+    rmse_record = []
+    vec_record = []
+    rmse_record.append(rmse(matmul(p,q.view(B,1,p_s)), sparse))
+    vec_record.append(p)
+    #training loop
+    iteration = 0 
+    while(iteration < limit):
+        p = als_step(sparse, q)
+        rmse_record.append(rmse(matmul(p,q.view(B,1,p_s)), sparse))
+        vec_record.append(p)
 
-        rmse_record.append(rmse(matmul(p,q.T), sparse))
+        q = als_step(sparse.view(B,W,H), p)
+        #rmse_record.append(rmse(matmul(p,q.view(B,1,p_s)), sparse))
 
-        #training loop
-        iteration = 0 
-        while(min_eps(rmse_record) and iteration < limit):
-            
-            p = als_step(sparse, q)
-            rmse_record.append(rmse(matmul(p,q.T), sparse))
+        if debug:
+            print("iteration: {:.0f}".format(iteration+1))
+            print("rmse_losses: p = {0}".format(rmse_record[iteration]))
 
-            q = als_step(sparse, p)
-            rmse_record.append(rmse(matmul(p,q.T), sparse))
+        iteration = iteration + 1
 
-            if debug:
-                print("iteration: {:.0f}".format(iteration+1))
-                print("rmse_losses: p = {0}, q = {1}".format(rmse_record[iteration], rmse_record[iteration+1]))
+    #choose best p approximation
+    p = vec_record[rmse_record.index(min(rmse_record))]
+    #normalize with geometric mean
+    p = torch.div(p,quick_gm(p).expand(B,H).view(B,H,1))
+    #print(p.shape)
+    if debug: 
+        print(quick_gm(p))
 
-            iteration = iteration + 1
-
-        #normalize with geometric mean
-        s = int(sparse_m.shape[1]**0.5)
-        p = p/geometric_mean(torch.squeeze(p), s, s)
-        if debug: 
-            print("Geometric mean of normalized map: {0}".format(geometric_mean(torch.squeeze(p), s, s)))
-            #print(p.view(1, out_size, out_size))
-
-        filled[b] = p.view(1,out_size,out_size)
+    filled = p.view(B,1,out_size,out_size)
 
     if cuda:
         return filled.cuda() 
@@ -86,6 +90,7 @@ def get_eigenvector_from_eigenvalue(e, v):
 
     print(corresponding_vector)
     return torch.abs(corresponding_vector)
+
 
 def alternating_least_squares(sparse_m, n, cuda, limit = 100, debug=False):
     """
@@ -102,37 +107,44 @@ def alternating_least_squares(sparse_m, n, cuda, limit = 100, debug=False):
     out_size = 2**n
     filled = torch.zeros(B,1,out_size,out_size)
     #go through batch and do als for each comparison matrix
-    for b in range(B):
-        sparse = sparse_m[b]
-        p = torch.rand((2**(2*n), 1))
-        q = torch.rand((2**(2*n-2),1))
+    #for b in range(B):
+    sparse = sparse_m
+    p_s = 2**(2*n)
+    q_s = 2**(2*n-2)
+    p = torch.ones((B,p_s,1))
+    q = torch.ones((B,q_s,1))
+    
+    rmse_record = []
+    vec_record = []
+    rmse_record.append(rmse(matmul(p,q.view(B,1,q_s)), sparse))
+    vec_record.append(p)
+    #training loop
+    iteration = 0 
+    while(iteration < limit):
         
-        rmse_record = []
+        p = als_step(sparse, q)
+        rmse_record.append(rmse(matmul(p,q.view(B,1,q_s)), sparse))
+        vec_record.append(p)
 
-        rmse_record.append(rmse(matmul(p,q.T), sparse))
+        q = als_step(sparse.view(B,W,H), p)
+        #rmse_record.append(rmse(matmul(p,q.view(B,1,q_s)), sparse))
 
-        #training loop
-        iteration = 0 
-        while(min_eps(rmse_record) and iteration < limit):
-            
-            p = als_step(sparse, q)
-            rmse_record.append(rmse(matmul(p,q.T), sparse))
+        if debug:
+            print("iteration: {:.0f}".format(iteration+1))
+            print("rmse_losses: p = {0}".format(rmse_record[iteration]))
 
-            q = als_step(sparse.T, p)
-            rmse_record.append(rmse(matmul(p,q.T), sparse))
+        iteration = iteration + 1
 
-            if debug:
-                print("iteration: {:.0f}".format(iteration+1))
-                print("rmse_losses: p = {0}, q = {1}".format(rmse_record[iteration], rmse_record[iteration+1]))
+    #choose best p approximation
+    p = vec_record[rmse_record.index(min(rmse_record))]
+    #normalize with geometric mean
 
-            iteration = iteration + 1
+    p = torch.div(p,quick_gm(p).expand(B,H).view(B,H,1))
+    #print(p.shape)
+    if debug: 
+        print(quick_gm(p))
 
-        #normalize with geometric mean
-        p = p/quick_gm(p)
-        if debug: 
-            print(quick_gm(p))
-
-        filled[b] = p.view(1,out_size,out_size)
+    filled = p.view(B,1,out_size,out_size)
 
     if cuda:
         return filled.cuda() 
@@ -162,9 +174,15 @@ def als_step(ratings, fixed_tensor, regularization_term = 0.05):
         when updating the user matrix,
         the item matrix is the fixed vector and vice versa
         """
-        A = fixed_tensor.T@fixed_tensor + torch.eye(fixed_tensor.shape[1]) * regularization_term
+        f_b, f_h, f_w = fixed_tensor.size()
+        r_b, r_h, r_w = ratings.size()
+        #print(torch.eye(fixed_tensor.shape[1]))
+        A = matmul(fixed_tensor.view(f_b, f_w, f_h),fixed_tensor) + torch.eye(f_w) * regularization_term
+        #print(A.shape)
+        #print(ratings.shape, fixed_tensor.shape)
         b = ratings@fixed_tensor
-        A_inv = torch.inverse(A)
+        #print(b.size())
+        A_inv = torch.linalg.inv(A)
         solve_vecs = b@A_inv
         return solve_vecs
 
@@ -196,7 +214,7 @@ def reconstruct(splits):
     #first concat along 2 axis
     #then concat along 3 axis
     # print("<---------Concat pages2map---------->\n")
-    # print("Split shape: {0}".format(splits[0].shape))
+    #print("Split shape: {0}".format(splits[0].shape))
     # print("Amount of pages: {0}".format(len(splits)))
     rows = []
     ratio = int(len(splits)**(1/2))
@@ -222,10 +240,12 @@ def quick_gm(t):
     computes geometric mean for als filled matrices
     """
     exp = 1/256 #hardcoded as sizes above 16x16 are not computed
-    torch.squeeze(t)
-    geomean = torch.prod(torch.pow(t,exp),0)
+    #print(torch.pow(t,exp).shape)
+    #torch.squeeze(t)
+    #print(t.shape)
+    geomean = torch.prod(torch.pow(t,exp),dim=1)
     ## print("Geometric mean: {0}".format(geomean))
-    return geomean[0]
+    return geomean
 
 def get_size(id):
     if id == 3:
@@ -238,32 +258,6 @@ def get_size(id):
         return 64,32
     elif id == 7:
         return 128,64
-
-def get_resized_area2(batch, r_s, r_e, c_s, c_e, dn_1):
-    """
-    r_s - row start index
-    r_e - row end index
-    c_s - column start index
-    c_e - column end index
-    dn_1 - depth map of size n-1
-
-    returns the 3x3 area in the previous depth map
-    """
-    kernel_r1 = dn_1[batch][0][r_s][c_s:c_e]
-    kernel_r2 = dn_1[batch][0][r_s+1][c_s:c_e]
-    kernel_r3 = dn_1[batch][0][r_e][c_s:c_e]
-    #print(kernel_r1, kernel_r2, kernel_r3)
-
-    result = torch.ones((1, dn_1.shape[1], dn_1.shape[2],dn_1.shape[3]))
-    if dn_1.is_cuda:
-        result = result.cuda()
-    result[0][0][r_s][c_s:c_e] = kernel_r1
-    result[0][0][r_s+1][c_s:c_e] = kernel_r2
-    result[0][0][r_e][c_s:c_e] = kernel_r3
-    #result = torch.reshape(result,(dn_1.shape[0], dn_1.shape[1], dn_1.shape[2]*dn_1.shape[3]))
-    # # print("Result")
-    # print(result)
-    return result.view(1, 1, dn_1.shape[2]*dn_1.shape[3])
 
 def get_resized_area( r_s, r_e, c_s, c_e, dn_1):
     """
@@ -605,6 +599,6 @@ def get_labels_sid(args, depth):
 
 if __name__ == "__main__":
     test = torch.abs(torch.randn((4,256,64)))
-    r = alternating_least_squares(test,4,False, debug=True)
+    r = alternating_least_squares(test,n=4, cuda=False, debug=True)
     
-
+    print(r.shape)
