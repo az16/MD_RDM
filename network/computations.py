@@ -35,7 +35,7 @@ def principal_eigen(p_3):
     
     return r
 
-def quadratic_als(sparse_m, cuda, n=3, limit = 100, debug = False):
+def quadratic_als(sparse_m, cuda, n=3, limit = 30, debug = False):
     B, H, W = sparse_m.size()
     sparse_m = sparse_m.float()
     out_size = 2**n
@@ -94,7 +94,7 @@ def get_eigenvector_from_eigenvalue(e, v):
     return torch.abs(corresponding_vector)
 
 
-def alternating_least_squares(sparse_m, n, cuda, limit = 100, debug=False):
+def alternating_least_squares(sparse_m, n, cuda, limit = 30, debug=False):
     """
     Implemetation of ALS algorithm to approximate the comparison matrix
 
