@@ -8,7 +8,7 @@ import utils as u
 import loss as l
 from dataloaders.nyu_dataloader import NYUDataset
 
-is_cuda=True
+is_cuda=False
 class RelativeDephModule(pl.LightningModule):
     def __init__(self, path, batch_size, learning_rate, worker, metrics, *args, **kwargs):
         super().__init__()
@@ -62,8 +62,11 @@ class RelativeDephModule(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
-        print(x.dtype, y.dtype)
+        #print(x.dtype, y.dtype)
+        #print(torch.min(y), torch.max(y))
         y = cp.resize(y,128)
+        #print(torch.min(y), torch.max(y))
+
         if is_cuda:
             y = y.cuda() 
             x = x.cuda()
@@ -79,14 +82,15 @@ class RelativeDephModule(pl.LightningModule):
         loss_all = mse + ord_loss + fine_detail_loss
        
         self.log("MSE", mse, prog_bar=True)
-        self.log("ord_loss", ord_loss, prog_bar=True)
-        self.log("fine_detail", fine_detail_loss, prog_bar=True)             
-        return self.metric_logger.log_train(final_depth, y, loss_all)
+        self.log("Ord_Loss", ord_loss, prog_bar=True)
+        self.log("Fine_Detail", fine_detail_loss, prog_bar=True)             
+        return self.metric_logger.log_train(final_depth, self.normalize(y), loss_all)
 
     def validation_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
         y = cp.resize(y,128)
+
         if is_cuda:
             y = y.cuda() 
             x = x.cuda()
@@ -95,11 +99,18 @@ class RelativeDephModule(pl.LightningModule):
 
         y_hat, _ = self.compute_final_depth(fine_details, y)
 
-        return self.metric_logger.log_val(y_hat, y)
+        return self.metric_logger.log_val(y_hat, self.normalize(y))
     
     def compute_final_depth(self, fine_detail_list, target):
         #decompose target map
-        component_target = cp.decompose_depth_map([], target, 7)[::-1]
+        B,C,H,W = target.size()
+        #target = self.normalize(target)
+        #print(cp.quick_gm(y.view(B,H*W,1)).shape)
+        #target = torch.div(target,cp.quick_gm(target.view(B,H*W,1)).expand(B,H*W).view(B,1,H,W))
+        component_target = cp.decompose_depth_map([], self.normalize(target), 7)[::-1]
+        ord_components = cp.decompose_depth_map([], self.normalize(u.depth2label_sid(cp.resize(target,8), cuda=is_cuda)), 3)[::-1]
+        component_target[0] = ord_components[0]
+
         #optimize weight layer
         components, loss = cp.optimize_components(self.model.weight_layer, fine_detail_list, component_target, is_cuda)
         #returns optimal candidates are recombined to final depth map
@@ -111,6 +122,11 @@ class RelativeDephModule(pl.LightningModule):
         target = cp.resize(target, ord_pred.shape[2])
         if is_cuda:
             target = target.cuda()
+        #print(target.shape)
         #transform with ordinal regression so it can be compared
-        ord_target = u.get_labels_sid("nyu", target, cuda=is_cuda)
+        ord_target = u.depth2label_sid(target, cuda=is_cuda)
         return ord_target
+    
+    def normalize(self, batch):
+        B,C,H,W = batch.size()
+        return torch.div(batch,cp.quick_gm(batch.view(B,H*W,1)).expand(B,H*W).view(B,1,H,W))

@@ -148,7 +148,7 @@ def alternating_least_squares(sparse_m, n, cuda, limit = 30, debug=False):
     p = torch.div(p,quick_gm(p).expand(B,H).view(B,H,1))
     #print(p.shape)
     if debug: 
-        print(quick_gm(p))
+        print(quick_gm(p).shape)
 
     filled = p.view(B,1,out_size,out_size)
 
@@ -310,7 +310,13 @@ def find_nans(container):
 def resize(depth_map, newsize):
     
     depth_map = depth_map.double()
-    return nn.functional.interpolate(depth_map,size=newsize)
+    return nn.functional.interpolate(depth_map, size=newsize, mode='bicubic', align_corners=False)
+
+def alt_resize(depthmap, n=1):
+    if n==1:
+        return geometric_resize(depthmap)
+    else:
+        return alt_resize(geometric_resize(depthmap), n-1)
 
 def geometric_resize(depthmap):
     """
@@ -374,22 +380,24 @@ def decompose_depth_map(container, dn, n, relative_map=False):
     if n == 0:
         if not relative_map:
             ## print("D_0: {0}".format(dn))
-            container.append(dn )#append d_0
+            container.append(dn)#append d_0
         # print("\nDecomposed into {0} fine detail maps.".format(len(container)))
         # print("NaN values found? -> {0}".format(find_nans(container)))
+        # for c in container:
+        #     print("F_{0}: {1}".format(n, quick_gm(dn.view(dn.shape[0],dn.shape[2]*dn.shape[3],1))))
         return container
     elif n >= 1:
         dn_1 = resize(dn, 2**(n-1))
-        fn = dn / upsample(dn_1)
-        ## print("F_{0}: {1}".format(n, dn))
-        container.append(fn )
+        fn = torch.div(dn,upsample(dn_1))
+        #print("F_{0}: {1}".format(n, torch.abs(quick_gm(fn.view(fn.shape[0],fn.shape[2]*fn.shape[3],1)))))
+        container.append(fn)
         return decompose_depth_map(container, dn_1, n-1, relative_map)
 
 def recombination(list_of_components, n=7):
     """
     This method combines the optimal candidates for each fine detail map. Therefore 
     output received from the depth estimation net can't be fed directly to this method.
-    In a previous step the optimal components have to be chosen.
+    In a previous step the optimal components have to be approximated.
 
     list_of_components - list of optimal recombination candidates for 
                          one input image (sorted after id in ascending order)
@@ -399,7 +407,7 @@ def recombination(list_of_components, n=7):
     d_0 = torch.log(multi_upsample(list_of_components.pop(0), n))
 
     result =  torch.log(multi_upsample(list_of_components.pop(0), n-1))
-    for i in range(n-2):
+    for i in range(len(list_of_components)):
         ## print(len(list_of_components), i)
         result = result+torch.log(multi_upsample(list_of_components[i], n-(i+2)))
     
@@ -479,11 +487,11 @@ def optimize_components_old(weights, yhat, y, lr=0.001):
     
     return pred
 
-def optimize_components(weights, yhat, y, cuda):
-    w = weights.weight_list
+def optimize_components(fn_weight_layer, yhat, y, cuda):
     #debug_print_list(w)
-    pred = make_pred(w, yhat, cuda)
+    pred = fn_weight_layer(yhat)
     loss = squared_err(pred,y, cuda)
+    #print(loss)
     #optimizer = torch.optim.SGD(params=w,lr=learning_rate)
     #optimizer.zero_grad()
     # loss = [x.backward() for x in loss]
@@ -492,6 +500,8 @@ def optimize_components(weights, yhat, y, cuda):
     return pred, torch.mean(torch.as_tensor(loss))
 
 def make_pred(w, A, cuda):
+    print(w)
+    #print(A)
     for i in range(len(A)):
         B, M = A[i].shape[0], A[i].shape[2]
         if cuda:
@@ -509,9 +519,10 @@ def make_pred(w, A, cuda):
 def squared_err(yhat,y, cuda):
     sqr_err_list = []
     for i in range(7):
-        #print(torch.min(yhat[i]), torch.min(y[i]))
-        #print(torch.max(yhat[i]), torch.max(y[i]))
-        # if i>0:
+        print(torch.min(yhat[i]), torch.min(y[i]))
+        print(torch.max(yhat[i]), torch.max(y[i]))
+        #if i==0:
+            #print(yhat[i], y[i])
         if cuda:
             sqr_err_list.append(torch.nn.MSELoss()(yhat[i],y[i]).cuda())
         else:

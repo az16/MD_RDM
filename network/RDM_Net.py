@@ -5,7 +5,7 @@ import numpy as np
 import scipy.io
 import network.computations as cp
 
-use_cuda = True
+use_cuda = False
 class BaseModel(nn.Module):
     def load(self, path):
         """Load model from file.
@@ -417,8 +417,10 @@ class Quantization():
             return 64
         elif id == 7:
             return 128
-class Weights:
+class Weights(nn.Module):
     def __init__(self, vector_sizes, use_cuda):
+        super(Weights, self).__init__()
+        self.use_cuda = use_cuda
         self.weight_list = self._make_weightvector_list_(vector_sizes, use_cuda)
 
     def update(self, weight_index, lr, gradient):
@@ -428,10 +430,14 @@ class Weights:
         return self.weight_list[index]
 
     def _make_weightvector_list_(self, sizes, use_cuda=False):
+
         if use_cuda:
-            return [torch.ones((size,1), requires_grad=True).cuda() for size in sizes]
+            return [torch.nn.Parameter(nn.functional.softmax(torch.ones((size,1)), dim=0).cuda(), requires_grad=True) for size in sizes]
         
-        return [torch.ones((size,1), requires_grad=True) for size in sizes]
+        return [torch.nn.Parameter(nn.functional.softmax(torch.ones((size,1)), dim=0), requires_grad=True) for size in sizes]
+    
+    def forward(self, x):
+        return cp.make_pred(self.weight_list, x, self.use_cuda)
 
 def _make_wsm_vertical_(in_channels, out_channels, kernel_size, stride):
     """Stride has to be chosen in a way that only one convolution is performed

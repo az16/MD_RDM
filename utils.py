@@ -125,7 +125,7 @@ def get_depth_sid(args, labels, cuda = False):
     elif args == 'nyu':
         min = 0.02
         max = 10.0
-        K = 68.0
+        K = 90.0
     elif args == 'floorplan3d':
         min = 0.0552
         max = 10.0
@@ -164,7 +164,7 @@ def get_labels_sid(args, depth, cuda=False):
     elif args == 'nyu':
         alpha = 0.02
         beta = 10.0
-        K = 68.0
+        K = 90.0
     elif args == 'floorplan3d':
         alpha = 0.0552
         beta = 10.0
@@ -191,5 +191,22 @@ def get_labels_sid(args, depth, cuda=False):
     if cuda:
         labels = labels.cuda()
     return labels.int()
+
+def depth2label_sid(depth, K=90.0, alpha=0.02, beta=10.0, cuda=False):
+    alpha = torch.tensor(alpha)
+    beta = torch.tensor(beta)
+    K = torch.tensor(K)
+
+    if cuda:
+        alpha = alpha.cuda()
+        beta = beta.cuda()
+        K = K.cuda()
+
+    label = K * torch.log(depth / alpha) / torch.log(beta / alpha)
+    label = torch.max(label, torch.zeros(label.shape)) # prevent negative label.
+    if cuda:
+        label = label.cuda()
+        
+    return label.int()
 
 
