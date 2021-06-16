@@ -73,17 +73,16 @@ def quadratic_als(sparse_m, cuda, n=3, limit = 30, debug = False):
     #choose best p approximation
     p = vec_record[rmse_record.index(min(rmse_record))]
     #normalize with geometric mean
-    p = torch.div(p,quick_gm(p).expand(B,H).view(B,H,1))
+    p = torch.div(p,quick_gm(p, H).expand(B,H).view(B,H,1))
     #print(p.shape)
     if debug: 
-        print(quick_gm(p))
+        print(quick_gm(p, H))
 
     filled = p.view(B,1,out_size,out_size)
 
     if cuda:
         return filled.cuda() 
     return filled 
-
 
 def get_eigenvector_from_eigenvalue(e, v):
     idx = torch.topk(e, k=1, dim=0)[1][0][0]
@@ -92,7 +91,6 @@ def get_eigenvector_from_eigenvalue(e, v):
 
     print(corresponding_vector)
     return torch.abs(corresponding_vector)
-
 
 def alternating_least_squares(sparse_m, n, cuda, limit = 30, debug=False):
     """
@@ -145,10 +143,10 @@ def alternating_least_squares(sparse_m, n, cuda, limit = 30, debug=False):
     p = vec_record[rmse_record.index(min(rmse_record))]
     #normalize with geometric mean
 
-    p = torch.div(p,quick_gm(p).expand(B,H).view(B,H,1))
+    p = torch.div(p,quick_gm(p,H).expand(B,H).view(B,H,1))
     #print(p.shape)
     if debug: 
-        print(quick_gm(p).shape)
+        print(quick_gm(p, H).shape)
 
     filled = p.view(B,1,out_size,out_size)
 
@@ -156,7 +154,6 @@ def alternating_least_squares(sparse_m, n, cuda, limit = 30, debug=False):
         return filled.cuda() 
     return filled 
     
-
 def min_eps(loss, eps=0.000001):
     """
     loss - list that contains all rmse losses from als method
@@ -244,11 +241,12 @@ def geometric_mean(iterable, r, c):
     #print(torch.pow(iterable,1/(r*c)))
     return torch.prod(torch.pow(iterable,1/(r*c)),0)
 
-def quick_gm(t):
+def quick_gm(t,rc):
     """
     computes geometric mean for als filled matrices
     """
-    exp = 1/256 #hardcoded as sizes above 16x16 are not computed
+    rc *= rc
+    exp = 1/rc #hardcoded as sizes above 16x16 are not computed
     #print(torch.pow(t,exp).shape)
     #torch.squeeze(t)
     #print(t.shape)
@@ -487,10 +485,10 @@ def optimize_components_old(weights, yhat, y, lr=0.001):
     
     return pred
 
-def optimize_components(fn_weight_layer, yhat, y, cuda):
+def optimize_components(yhat, y, cuda):
     #debug_print_list(w)
-    pred = fn_weight_layer(yhat)
-    loss = squared_err(pred,y, cuda)
+    pred = yhat
+    loss = squared_err(pred, y, cuda)
     #print(loss)
     #optimizer = torch.optim.SGD(params=w,lr=learning_rate)
     #optimizer.zero_grad()
@@ -500,7 +498,7 @@ def optimize_components(fn_weight_layer, yhat, y, cuda):
     return pred, torch.mean(torch.as_tensor(loss))
 
 def make_pred(w, A, cuda):
-    print(w)
+    #print(w)
     #print(A)
     for i in range(len(A)):
         B, M = A[i].shape[0], A[i].shape[2]
@@ -519,8 +517,6 @@ def make_pred(w, A, cuda):
 def squared_err(yhat,y, cuda):
     sqr_err_list = []
     for i in range(7):
-        print(torch.min(yhat[i]), torch.min(y[i]))
-        print(torch.max(yhat[i]), torch.max(y[i]))
         #if i==0:
             #print(yhat[i], y[i])
         if cuda:

@@ -8,7 +8,7 @@ import utils as u
 import loss as l
 from dataloaders.nyu_dataloader import NYUDataset
 
-is_cuda=False
+is_cuda=True
 class RelativeDephModule(pl.LightningModule):
     def __init__(self, path, batch_size, learning_rate, worker, metrics, *args, **kwargs):
         super().__init__()
@@ -112,7 +112,7 @@ class RelativeDephModule(pl.LightningModule):
         component_target[0] = ord_components[0]
 
         #optimize weight layer
-        components, loss = cp.optimize_components(self.model.weight_layer, fine_detail_list, component_target, is_cuda)
+        components, loss = cp.optimize_components(fine_detail_list, component_target, is_cuda)
         #returns optimal candidates are recombined to final depth map
         final = cp.recombination(components)
         return final,loss
@@ -129,4 +129,4 @@ class RelativeDephModule(pl.LightningModule):
     
     def normalize(self, batch):
         B,C,H,W = batch.size()
-        return torch.div(batch,cp.quick_gm(batch.view(B,H*W,1)).expand(B,H*W).view(B,1,H,W))
+        return torch.div(batch,cp.quick_gm(batch.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W))

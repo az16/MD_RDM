@@ -5,7 +5,7 @@ import numpy as np
 import scipy.io
 import network.computations as cp
 
-use_cuda = False
+use_cuda = True
 class BaseModel(nn.Module):
     def load(self, path):
         """Load model from file.
@@ -61,7 +61,7 @@ class DepthEstimationNet(BaseModel):
         # print("Encoder input: {0}".format(x))
         x = self.encoder.conv_e1(x)
         # print("Encoder layer 1: {0}".format(x))
-        # print("Encoder layer 1 weights: {0}".format(self.encoder.conv_e1.weight))
+        #print("Encoder layer 1 weights: {0}".format(self.encoder.conv_e1.weight.grad))
         x = self.encoder.max_e1(x)
         # print("Encoder layer 2: {0}".format(x))
         x = self.encoder.dense_e2(x)
@@ -89,7 +89,6 @@ class DepthEstimationNet(BaseModel):
         if use_cuda:
             x.cuda()
         
-
         x_d1, ord_labels = self.d_1(x)#regular
         #print(x_d1)
         x_d6 = self.d_6(x)#relative
@@ -100,7 +99,8 @@ class DepthEstimationNet(BaseModel):
         # print("D1 output before decomposition: {0}".format(x_d1))
         #get fine-detail maps for each depth map
         #print(x_d1,x_d6, x_d7, x_d8, x_d9)
-        f_d1 = cp.decompose_depth_map([], x_d1, 3)[::-1]
+        B,C,H,W = x_d1.size()
+        f_d1 = cp.decompose_depth_map([], torch.div(x_d1,cp.quick_gm(x_d1.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)), 3)[::-1]
         f_d6 = cp.decompose_depth_map([], x_d6, 3, relative_map=True)[::-1]
         f_d7 = cp.decompose_depth_map([], x_d7, 4, relative_map=True)[::-1]
         f_d8 = cp.decompose_depth_map([], x_d8, 5, relative_map=True)[::-1]
@@ -108,8 +108,12 @@ class DepthEstimationNet(BaseModel):
         #print(f_d1, f_d6, f_d7, f_d8, f_d9)
         #bring into matrix form
         y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9], use_cuda)
-        
+        #print(self.weight_layer.weight_list)
+        #self.weight_layer.print_grads()
+        #print(list(self.weight_layer.parameters()))
+        y_hat = self.weight_layer(y_hat)
         return y_hat, x_d1, ord_labels
+
 class Decoder(nn.Module):
     def __init__(self, in_channels, num_wsm_layers, DORN, id, quant):
         super(Decoder, self).__init__()
@@ -121,7 +125,6 @@ class Decoder(nn.Module):
         self.wsm_block = _make_wsm_layers_(num_wsm_layers)
         self.conv1 = nn.Conv2d(in_channels=_wsm_output_planes(id), out_channels=1, kernel_size=1)
         self.conv2 = nn.Conv2d(in_channels=_wsm_output_planes(id), out_channels=180, kernel_size=1)
-
         self.ord_layer = Ordinal_Layer(id, DORN, quant)
 
     def forward(self, x):
@@ -133,7 +136,6 @@ class Decoder(nn.Module):
         if self.id > 5:
             x = self.conv1(x)#make feature map have only one channel
         if self.id == 1:
-
             x = self.conv2(x)
         x = self.ord_layer(x)
         #print(x)
@@ -212,6 +214,7 @@ class WSMLayer(nn.Module):
         cat = torch.cat((out1_1, out2_1, out2_2, completion_vertical, completion_horizontal),1)
         ## print(cat.shape)
         return cat
+
 class Ordinal_Layer(nn.Module):
     def __init__(self, decoder_id, DORN, quantizer):
         super(Ordinal_Layer, self).__init__()
@@ -328,7 +331,8 @@ class Ordinal_Layer(nn.Module):
             #print("Before DornRegression: {0}".format(x))
             depth, labels = self.DornOrdinalRegression(x)
             #print("After DornRegression: {0}".format(x))
-            depth = depth/cp.geometric_mean(torch.squeeze(depth), 8, 8)
+            #B,C,H,W = depth.size()
+            #depth = torch.div(depth,cp.quick_gm(depth.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W))#depth/cp.geometric_mean(torch.squeeze(depth), 8, 8)
             #depth = torch.unsqueeze(depth, dim=1)
             #print(depth)
             return (depth, labels) 
@@ -421,7 +425,17 @@ class Weights(nn.Module):
     def __init__(self, vector_sizes, use_cuda):
         super(Weights, self).__init__()
         self.use_cuda = use_cuda
-        self.weight_list = self._make_weightvector_list_(vector_sizes, use_cuda)
+        self.d0 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[0],1)), dim=0))
+        self.f1 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[1],1)), dim=0))
+        self.f2 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[2],1)), dim=0))
+        self.f3 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[3],1)), dim=0))
+        self.f4 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[4],1)), dim=0))
+        self.f5 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[5],1)), dim=0))
+        self.f6 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[6],1)), dim=0))
+        self.f7 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[7],1)), dim=0))
+        if self.use_cuda:
+            self.to_cuda()
+        self.weight_list = [self.d0, self.f1, self.f2, self.f3, self.f4, self.f5, self.f6, self.f7]
 
     def update(self, weight_index, lr, gradient):
         self.weight_list[weight_index] = self.weight_list[weight_index] - lr * gradient
@@ -429,12 +443,19 @@ class Weights(nn.Module):
     def get(self, index):
         return self.weight_list[index]
 
+    def to_cuda(self):
+        self.weight_list = [x.cuda() for x in self.weight_list]
+
     def _make_weightvector_list_(self, sizes, use_cuda=False):
 
         if use_cuda:
-            return [torch.nn.Parameter(nn.functional.softmax(torch.ones((size,1)), dim=0).cuda(), requires_grad=True) for size in sizes]
+            return [torch.nn.Parameter(nn.functional.softmax(torch.ones((size,1)), dim=0).cuda()) for size in sizes]
         
-        return [torch.nn.Parameter(nn.functional.softmax(torch.ones((size,1)), dim=0), requires_grad=True) for size in sizes]
+        return [torch.nn.Parameter(nn.functional.softmax(torch.ones((size,1)), dim=0)) for size in sizes]
+    
+    def print_grads(self):
+        for weight in self.weight_list:
+            print(weight.grad)
     
     def forward(self, x):
         return cp.make_pred(self.weight_list, x, self.use_cuda)
