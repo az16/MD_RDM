@@ -129,4 +129,6 @@ class RelativeDephModule(pl.LightningModule):
     
     def normalize(self, batch):
         B,C,H,W = batch.size()
-        return torch.div(batch,cp.quick_gm(batch.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W))
+        if is_cuda:
+            return torch.div(batch,cp.quick_gm(batch.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)).cuda()
+        return torch.div(batch,cp.quick_gm(batch.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)).cuda()
