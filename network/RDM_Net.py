@@ -433,9 +433,11 @@ class Weights(nn.Module):
         self.f5 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[5],1)), dim=0))
         self.f6 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[6],1)), dim=0))
         self.f7 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[7],1)), dim=0))
+
+        self.weight_list = [self.d0, self.f1, self.f2, self.f3, self.f4, self.f5, self.f6, self.f7]
+
         if self.use_cuda:
             self.to_cuda()
-        self.weight_list = [self.d0, self.f1, self.f2, self.f3, self.f4, self.f5, self.f6, self.f7]
 
     def update(self, weight_index, lr, gradient):
         self.weight_list[weight_index] = self.weight_list[weight_index] - lr * gradient
