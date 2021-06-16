@@ -27,6 +27,8 @@ class RelativeDephModule(pl.LightningModule):
         self.criterion = torch.nn.MSELoss()
         print("Use cuda: {0}".format(is_cuda))
         if is_cuda:
+            device = torch.device('cuda')
+            torch.set_default_tensor_type('torch.cuda.FloatTensor')
             self.model = DepthEstimationNet().cuda()
         else:
             self.model = DepthEstimationNet()
