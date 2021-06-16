@@ -27,8 +27,6 @@ class RelativeDephModule(pl.LightningModule):
         self.criterion = torch.nn.MSELoss()
         print("Use cuda: {0}".format(is_cuda))
         if is_cuda:
-            device = torch.device('cuda')
-            torch.set_default_tensor_type('torch.cuda.FloatTensor')
             self.model = DepthEstimationNet().cuda()
         else:
             self.model = DepthEstimationNet()
@@ -112,7 +110,7 @@ class RelativeDephModule(pl.LightningModule):
         component_target = cp.decompose_depth_map([], self.normalize(target), 7)[::-1]
         ord_components = cp.decompose_depth_map([], self.normalize(u.depth2label_sid(cp.resize(target,8), cuda=is_cuda)), 3)[::-1]
         component_target[0] = ord_components[0]
-
+       
         #optimize weight layer
         components, loss = cp.optimize_components(fine_detail_list, component_target, is_cuda)
         #returns optimal candidates are recombined to final depth map
@@ -133,4 +131,4 @@ class RelativeDephModule(pl.LightningModule):
         B,C,H,W = batch.size()
         if is_cuda:
             return torch.div(batch,cp.quick_gm(batch.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)).cuda()
-        return torch.div(batch,cp.quick_gm(batch.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)).cuda()
+        return torch.div(batch,cp.quick_gm(batch.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W))

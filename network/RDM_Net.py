@@ -8,9 +8,9 @@ import network.computations as cp
 use_cuda = True
 class BaseModel(nn.Module):
     def load(self, path):
-        """Load model from file.
-        Args:
-            path (str): file path
+        #Load model from file.
+        #Args:
+        #    path (str): file path
         
         parameters = torch.load(path)
 
@@ -18,7 +18,7 @@ class BaseModel(nn.Module):
             parameters = parameters["model"]
 
         self.load_state_dict(parameters)
-        """
+        
 class DepthEstimationNet(BaseModel):
     def __init__(self):
         super(DepthEstimationNet, self).__init__()
@@ -85,7 +85,6 @@ class DepthEstimationNet(BaseModel):
         #according to the authors, optimal performance is reached with decoders
         #1,6,7,8,9
         ## print("Encoder output: {0}".format(x))
-
         if use_cuda:
             x.cuda()
         
@@ -214,7 +213,6 @@ class WSMLayer(nn.Module):
         cat = torch.cat((out1_1, out2_1, out2_2, completion_vertical, completion_horizontal),1)
         ## print(cat.shape)
         return cat
-
 class Ordinal_Layer(nn.Module):
     def __init__(self, decoder_id, DORN, quantizer):
         super(Ordinal_Layer, self).__init__()

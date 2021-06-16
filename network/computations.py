@@ -498,10 +498,12 @@ def optimize_components(yhat, y, cuda):
     return pred, torch.mean(torch.as_tensor(loss))
 
 def make_pred(w, A, cuda):
-    #print(w)
-    #print(A)
+    # print(w.is_cuda)
+    # print(A.is_cuda)
     for i in range(len(A)):
         B, M = A[i].shape[0], A[i].shape[2]
+        # print(w[i].is_cuda)
+        # print(A[i].is_cuda)
         if cuda:
             tmp = torch.zeros((B, M, 1)).cuda()
             for b in range(A[i].shape[0]):
@@ -518,7 +520,7 @@ def squared_err(yhat,y, cuda):
     sqr_err_list = []
     for i in range(7):
         #if i==0:
-            #print(yhat[i], y[i])
+        #print(yhat[i].is_cuda, y[i].is_cuda)
         if cuda:
             sqr_err_list.append(torch.nn.MSELoss()(yhat[i],y[i]).cuda())
         else:
