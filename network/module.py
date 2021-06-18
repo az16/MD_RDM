@@ -69,7 +69,7 @@ class RelativeDephModule(pl.LightningModule):
 
         if is_cuda:
             y = y.cuda() 
-            x = x.cuda()
+            #x = x.cuda()
             
         fine_details, ord_depth_pred, ord_label_pred = self(x)
 
