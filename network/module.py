@@ -8,7 +8,7 @@ import utils as u
 import loss as l
 from dataloaders.nyu_dataloader import NYUDataset
 
-is_cuda=True
+is_cuda=False
 class RelativeDephModule(pl.LightningModule):
     def __init__(self, path, batch_size, learning_rate, worker, metrics, *args, **kwargs):
         super().__init__()
@@ -93,7 +93,7 @@ class RelativeDephModule(pl.LightningModule):
 
         if is_cuda:
             y = y.cuda() 
-            x = x.cuda()
+            #x = x.cuda()
             
         fine_details, _, _ = self(x)
 
@@ -132,3 +132,4 @@ class RelativeDephModule(pl.LightningModule):
         if is_cuda:
             return torch.div(batch,cp.quick_gm(batch.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)).cuda()
         return torch.div(batch,cp.quick_gm(batch.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W))
+        #return torch.div(batch,cp.quick_gm(batch.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)) 

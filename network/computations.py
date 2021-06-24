@@ -226,10 +226,10 @@ def reconstruct(splits):
     ratio = int(len(splits)**(1/2))
     container = None
     for i in range(ratio):
-        container = splits.pop(0)
-        for j in range(ratio-1):
-            container = torch.cat((container, splits.pop(0)), 2)
-        rows.append(container)
+        #container = splits.pop(0)
+        #for j in range(ratio-1):
+        #container = torch.cat((container, splits[0:ratio-1], 2))
+        rows.append(torch.cat(splits[0:ratio], 2))
     
     reconstructed = torch.cat(rows, dim=3)
     
@@ -507,12 +507,16 @@ def make_pred(w, A, cuda):
         if cuda:
             tmp = torch.zeros((B, M, 1)).cuda()
             for b in range(A[i].shape[0]):
-                tmp[b]  = A[i][b].T.float()@w[i].float().cuda() 
+                tmp[b]  = matmul(A[i][b].T.float(), w[i].float()).cuda() 
             A[i] = tmp.view(B,1,int(math.sqrt(M)),int(math.sqrt(M))).cuda()
         else:
             tmp = torch.zeros((B, M, 1))
             for b in range(A[i].shape[0]):
-                tmp[b]  = A[i][b].T.float()@w[i].float() 
+                #print(matmul(A[i][b].T.float(), w[i].float()).shape)
+                #print((A[i][b].T.float() @ w[i].float()).shape)
+                tmp[b] = matmul(A[i][b].T.float(), w[i].float()) 
+                #tmp[b] = (A[i][b].T.float() @ w[i].float())
+                #print(torch.eq(test, tmp[b]))
             A[i] = tmp.view(B,1,int(math.sqrt(M)),int(math.sqrt(M)))
     return A
 

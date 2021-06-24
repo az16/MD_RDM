@@ -5,19 +5,20 @@ import numpy as np
 import scipy.io
 import network.computations as cp
 
-use_cuda = True
+use_cuda = False
 class BaseModel(nn.Module):
     def load(self, path):
         #Load model from file.
         #Args:
         #    path (str): file path
         
-        parameters = torch.load(path)
+        # parameters = torch.load(path)
 
-        if "optimizer" in parameters:
-            parameters = parameters["model"]
+        # if "optimizer" in parameters:
+        #     parameters = parameters["model"]
 
-        self.load_state_dict(parameters)
+        # self.load_state_dict(parameters)
+        pass
         
 class DepthEstimationNet(BaseModel):
     def __init__(self):
@@ -107,6 +108,7 @@ class DepthEstimationNet(BaseModel):
         #print(f_d1, f_d6, f_d7, f_d8, f_d9)
         #bring into matrix form
         y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9], use_cuda)
+        #self.weight_layer.print_grads()
         #print(self.weight_layer.weight_list)
         #self.weight_layer.print_grads()
         #print(list(self.weight_layer.parameters()))
@@ -424,23 +426,23 @@ class Weights(nn.Module):
         super(Weights, self).__init__()
         self.use_cuda = use_cuda
         if self.use_cuda:
-            self.d0 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[0],1)), dim=0).cuda())
-            self.f1 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[1],1)), dim=0).cuda())
-            self.f2 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[2],1)), dim=0).cuda())
-            self.f3 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[3],1)), dim=0).cuda())
-            self.f4 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[4],1)), dim=0).cuda())
-            self.f5 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[5],1)), dim=0).cuda())
-            self.f6 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[6],1)), dim=0).cuda())
-            self.f7 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[7],1)), dim=0).cuda())
+            self.d0 = nn.Parameter(torch.abs(torch.randn((vector_sizes[0],1))).cuda())
+            self.f1 = nn.Parameter(torch.abs(torch.randn((vector_sizes[1],1))).cuda())
+            self.f2 = nn.Parameter(torch.abs(torch.randn((vector_sizes[2],1))).cuda())
+            self.f3 = nn.Parameter(torch.abs(torch.randn((vector_sizes[3],1))).cuda())
+            self.f4 = nn.Parameter(torch.abs(torch.randn((vector_sizes[4],1))).cuda())
+            self.f5 = nn.Parameter(torch.abs(torch.randn((vector_sizes[5],1))).cuda())
+            self.f6 = nn.Parameter(torch.abs(torch.randn((vector_sizes[6],1))).cuda())
+            self.f7 = nn.Parameter(torch.abs(torch.randn((vector_sizes[7],1))).cuda())
         else:
-            self.d0 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[0],1)), dim=0))
-            self.f1 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[1],1)), dim=0))
-            self.f2 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[2],1)), dim=0))
-            self.f3 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[3],1)), dim=0))
-            self.f4 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[4],1)), dim=0))
-            self.f5 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[5],1)), dim=0))
-            self.f6 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[6],1)), dim=0))
-            self.f7 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[7],1)), dim=0))
+            self.d0 = nn.Parameter(torch.abs(torch.randn((vector_sizes[0],1))))
+            self.f1 = nn.Parameter(torch.abs(torch.randn((vector_sizes[1],1))))
+            self.f2 = nn.Parameter(torch.abs(torch.randn((vector_sizes[2],1))))
+            self.f3 = nn.Parameter(torch.abs(torch.randn((vector_sizes[3],1))))
+            self.f4 = nn.Parameter(torch.abs(torch.randn((vector_sizes[4],1))))
+            self.f5 = nn.Parameter(torch.abs(torch.randn((vector_sizes[5],1))))
+            self.f6 = nn.Parameter(torch.abs(torch.randn((vector_sizes[6],1))))
+            self.f7 = nn.Parameter(torch.abs(torch.randn((vector_sizes[7],1))))
         self.weight_list = [self.d0, self.f1, self.f2, self.f3, self.f4, self.f5, self.f6, self.f7]
 
     def update(self, weight_index, lr, gradient):
