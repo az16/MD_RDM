@@ -5,7 +5,7 @@ import numpy as np
 import scipy.io
 import network.computations as cp
 
-use_cuda = False
+use_cuda = True
 class BaseModel(nn.Module):
     def load(self, path):
         #Load model from file.
