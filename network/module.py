@@ -14,7 +14,7 @@ class RelativeDephModule(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self.metric_logger = MetricLogger(metrics=metrics, module=self)
-        self.train_loader = torch.utils.data.DataLoader(NYUDataset(path, dataset_type='labeled', split="train", output_size=(226, 226)),
+        self.train_loader = torch.utils.data.DataLoader(NYUDataset(path, dataset_type='sparse_2_dense', split="train", output_size=(226, 226)),
                                                     batch_size=batch_size, 
                                                     shuffle=True, 
                                                     num_workers=worker, 
