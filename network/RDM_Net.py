@@ -108,7 +108,7 @@ class DepthEstimationNet(BaseModel):
         #print(f_d1, f_d6, f_d7, f_d8, f_d9)
         #bring into matrix form
         y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9], use_cuda)
-        #self.weight_layer.print_grads()
+        self.weight_layer.print_grads()
         #print(self.weight_layer.weight_list)
         #self.weight_layer.print_grads()
         #print(list(self.weight_layer.parameters()))
