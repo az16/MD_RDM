@@ -62,7 +62,7 @@ class DepthEstimationNet(BaseModel):
         self.weight_layer = Weights(vector_sizes=[1,1,1,1,0,0,0,0], use_cuda=use_cuda, relative_only=True)
 
     def freeze_encoder(self):
-        for parameter in self.encoder.parameters:
+        for parameter in self.encoder.parameters():
             parameter.requires_grad = False
             
 
