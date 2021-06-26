@@ -8,17 +8,16 @@ import network.computations as cp
 use_cuda = True
 class BaseModel(nn.Module):
     def load(self, path):
-        #Load model from file.
-        #Args:
+        # Load model from file.
+        # Args:
         #    path (str): file path
         
-        # parameters = torch.load(path)
+        parameters = torch.load(path)
 
-        # if "optimizer" in parameters:
-        #     parameters = parameters["model"]
+        if "optimizer" in parameters:
+            parameters = parameters["model"]
 
-        # self.load_state_dict(parameters)
-        pass
+        self.load_state_dict(parameters)
         
 class DepthEstimationNet(BaseModel):
     def __init__(self):
