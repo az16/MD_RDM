@@ -6,19 +6,20 @@ import scipy.io
 import network.computations as cp
 
 use_cuda = True
+freeze_encoder = True
 class BaseModel(nn.Module):
     def load(self, path):
         # Load model from file.
         # Args:
         #    path (str): file path
         
-        # parameters = torch.load(path)
+        parameters = torch.load(path)
 
-        # if "optimizer" in parameters:
-        #     parameters = parameters["model"]
+        if "optimizer" in parameters:
+            parameters = parameters["model"]
 
-        # self.load_state_dict(parameters)
-        pass
+        self.load_state_dict(parameters)
+        
         
 class DepthEstimationNet(BaseModel):
     def __init__(self):
@@ -40,6 +41,9 @@ class DepthEstimationNet(BaseModel):
         self.quantizers = Quantization()
         #Encoder part
         self.encoder = _make_encoder_()
+
+        if freeze_encoder:
+            self.freeze_encoder()
         #Decoders 1-10
         #First 5 estimate regular depth maps using ordinal loss and SID algorithm
         self.d_1 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=1, quant=self.quantizers)
@@ -56,6 +60,11 @@ class DepthEstimationNet(BaseModel):
         # self.d_10 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=False, id=10, quant=self.quantizers)
 
         self.weight_layer = Weights(vector_sizes=[1,1,1,1,0,0,0,0], use_cuda=use_cuda, relative_only=False)
+
+    def freeze_encoder(self):
+        for parameter in self.encoder.parameters:
+            parameter.requires_grad = False
+            
 
     def forward(self, x):
         #encoder propagation
