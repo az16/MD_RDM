@@ -72,11 +72,13 @@ class RelativeDephModule(pl.LightningModule):
             #x = x.cuda()
             
         fine_details, ord_depth_pred, ord_label_pred = self(x)
-
-        final_depth, fine_detail_loss = self.compute_final_depth(fine_details, y)
+        ord_loss = 0
+        has_ordinal = fine_details[0].shape[2] == 1
+        final_depth, fine_detail_loss = self.compute_final_depth(fine_details, y, has_ordinal=has_ordinal)
         #print(torch.isnan(final_depth).any())
-        ord_y = self.compute_ordinal_target(ord_depth_pred, y)
-        ord_loss = l.Ordinal_Loss().calc(ord_label_pred, ord_y, cuda=is_cuda)
+        if not (ord_depth_pred is None):
+            ord_y = self.compute_ordinal_target(ord_depth_pred, y)
+            ord_loss = l.Ordinal_Loss().calc(ord_label_pred, ord_y, cuda=is_cuda)
 
         mse = self.criterion(final_depth, y)
         loss_all = mse + ord_loss + fine_detail_loss
@@ -96,20 +98,21 @@ class RelativeDephModule(pl.LightningModule):
             #x = x.cuda()
             
         fine_details, _, _ = self(x)
-
-        y_hat, _ = self.compute_final_depth(fine_details, y)
+        has_ordinal = fine_details[0].shape[2] == 1
+        y_hat, _ = self.compute_final_depth(fine_details, y, has_ordinal=has_ordinal)
 
         return self.metric_logger.log_val(y_hat, self.normalize(y))
     
-    def compute_final_depth(self, fine_detail_list, target):
+    def compute_final_depth(self, fine_detail_list, target, has_ordinal):
         #decompose target map
         B,C,H,W = target.size()
         #target = self.normalize(target)
         #print(cp.quick_gm(y.view(B,H*W,1)).shape)
         #target = torch.div(target,cp.quick_gm(target.view(B,H*W,1)).expand(B,H*W).view(B,1,H,W))
         component_target = cp.decompose_depth_map([], self.normalize(target), 7)[::-1]
-        ord_components = cp.decompose_depth_map([], self.normalize(u.depth2label_sid(cp.resize(target,8), cuda=is_cuda)), 3)[::-1]
-        component_target[0] = ord_components[0]
+        if has_ordinal:
+            ord_components = cp.decompose_depth_map([], self.normalize(u.depth2label_sid(cp.resize(target,8), cuda=is_cuda)), 3)[::-1]
+            component_target[0] = ord_components[0]
        
         #optimize weight layer
         components, loss = cp.optimize_components(fine_detail_list, component_target, is_cuda)

@@ -402,14 +402,22 @@ def recombination(list_of_components, n=7):
     n - the id of the depth map that is supposed to be recombined (n=7 by default since we want a 128x128 map)
     returns - Reconstructed depthmap in log scale according to formula (6) from paper
     """
-    d_0 = torch.log(multi_upsample(list_of_components.pop(0), n))
+    if list_of_components[0].shape[2] == 1:
 
-    result =  torch.log(multi_upsample(list_of_components.pop(0), n-1))
-    for i in range(len(list_of_components)):
-        ## print(len(list_of_components), i)
-        result = result+torch.log(multi_upsample(list_of_components[i], n-(i+2)))
-    
-    optimal_map = d_0 + result 
+        d_0 = torch.log(multi_upsample(list_of_components.pop(0), n))
+
+        result =  torch.log(multi_upsample(list_of_components.pop(0), n-1))
+        for i in range(len(list_of_components)):
+            ## print(len(list_of_components), i)
+            result = result+torch.log(multi_upsample(list_of_components[i], n-(i+2)))
+        
+        optimal_map = d_0 + result 
+    else:
+        result =  torch.log(multi_upsample(list_of_components.pop(0), n-1))
+        for i in range(len(list_of_components)):
+            ## print(len(list_of_components), i)
+            result = result+torch.log(multi_upsample(list_of_components[i], n-(i+2)))
+        optimal_map = result
     return optimal_map
 
 def relative_fine_detail_matrix(fine_detail_rows, cuda):
@@ -417,16 +425,19 @@ def relative_fine_detail_matrix(fine_detail_rows, cuda):
     fine_detail_row - list of fine detail lists obtained from relative depth maps
     returns - matrix of relative fine detail components
     """
-    slots = [[] for x in range(7)]
-    
+    slots = [[] for x in range(8)]
+
     #put candidates of the same size together in lists
     for row in fine_detail_rows:
         for fine_detail_map in row:
+            #print(fine_detail_map.shape)
             idx = idx_from_size(fine_detail_map)
+            #print(idx)
             slots[idx].append(fine_detail_map)
     
     #create matrix from candidates
-    fine_detail_matrices = [make_matrix(x, cuda) for x in slots]
+    #print(fine_detail_rows)
+    fine_detail_matrices = [make_matrix(x, cuda) for x in slots if not len(x) == 0]
 
     return fine_detail_matrices
 
@@ -497,9 +508,13 @@ def optimize_components(yhat, y, cuda):
 
     return pred, torch.mean(torch.as_tensor(loss))
 
-def make_pred(w, A, cuda):
+def make_pred(w, A, cuda, relative_only):
+    weights = w
+    if relative_only:
+        weights = w[1::]
     # print(w.is_cuda)
     # print(A.is_cuda)
+    #print(len(A), len(w))
     for i in range(len(A)):
         B, M = A[i].shape[0], A[i].shape[2]
         # print(w[i].is_cuda)
@@ -507,14 +522,14 @@ def make_pred(w, A, cuda):
         if cuda:
             tmp = torch.zeros((B, M, 1)).cuda()
             for b in range(A[i].shape[0]):
-                tmp[b]  = matmul(A[i][b].T.float(), w[i].float()).cuda() 
+                tmp[b]  = matmul(A[i][b].T.float(), weights[i].float()).cuda() 
             A[i] = tmp.view(B,1,int(math.sqrt(M)),int(math.sqrt(M))).cuda()
         else:
             tmp = torch.zeros((B, M, 1))
             for b in range(A[i].shape[0]):
                 #print(matmul(A[i][b].T.float(), w[i].float()).shape)
                 #print((A[i][b].T.float() @ w[i].float()).shape)
-                tmp[b] = matmul(A[i][b].T.float(), w[i].float()) 
+                tmp[b] = matmul(A[i][b].T.float(), weights[i].float()) 
                 #tmp[b] = (A[i][b].T.float() @ w[i].float())
                 #print(torch.eq(test, tmp[b]))
             A[i] = tmp.view(B,1,int(math.sqrt(M)),int(math.sqrt(M)))
@@ -522,9 +537,12 @@ def make_pred(w, A, cuda):
 
 def squared_err(yhat,y, cuda):
     sqr_err_list = []
-    for i in range(7):
+    if yhat[0].shape[2] > y[0].shape[2]:
+        y.pop(0)
+    for i in range(len(yhat)):
         #if i==0:
         #print(yhat[i].is_cuda, y[i].is_cuda)
+        #print(yhat[i].shape, y[i].shape)
         if cuda:
             sqr_err_list.append(torch.nn.MSELoss()(yhat[i],y[i]).cuda())
         else:

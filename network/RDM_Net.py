@@ -49,13 +49,13 @@ class DepthEstimationNet(BaseModel):
         # self.d_5 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=True, id=5, quant=self.quantizers)
         
         #Remaining 5 estimate relative depth maps using ALS
-        self.d_6 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=6, quant=self.quantizers)
-        self.d_7 = Decoder(in_channels=1056, num_wsm_layers=1, DORN=False, id=7, quant=self.quantizers)
-        self.d_8 = Decoder(in_channels=1056, num_wsm_layers=2, DORN=False, id=8, quant=self.quantizers)
-        self.d_9 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=False, id=9, quant=self.quantizers)
+        #self.d_6 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=6, quant=self.quantizers)
+        #self.d_7 = Decoder(in_channels=1056, num_wsm_layers=1, DORN=False, id=7, quant=self.quantizers)
+        #self.d_8 = Decoder(in_channels=1056, num_wsm_layers=2, DORN=False, id=8, quant=self.quantizers)
+        #self.d_9 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=False, id=9, quant=self.quantizers)
         # self.d_10 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=False, id=10, quant=self.quantizers)
 
-        self.weight_layer = Weights(vector_sizes=[1,5,5,5,3,2,1,0], use_cuda=use_cuda)
+        self.weight_layer = Weights(vector_sizes=[1,1,1,1,0,0,0,0], use_cuda=use_cuda, relative_only=False)
 
     def forward(self, x):
         #encoder propagation
@@ -88,30 +88,35 @@ class DepthEstimationNet(BaseModel):
         ## print("Encoder output: {0}".format(x))
         if use_cuda:
             x.cuda()
-        
+        x_d1, ord_labels = None, None
         x_d1, ord_labels = self.d_1(x)#regular
         #print(x_d1)
-        x_d6 = self.d_6(x)#relative
+        #x_d6 = self.d_6(x)#relative
         #print(x_d6)
-        x_d7 = self.d_7(x)#relative
-        x_d8 = self.d_8(x)#relative
-        x_d9 = self.d_9(x)#relative
+        #x_d7 = self.d_7(x)#relative
+        #x_d8 = self.d_8(x)#relative
+        #x_d9 = self.d_9(x)#relative
         # print("D1 output before decomposition: {0}".format(x_d1))
         #get fine-detail maps for each depth map
         #print(x_d1,x_d6, x_d7, x_d8, x_d9)
-        B,C,H,W = x_d1.size()
+        #B,C,H,W = x_d6.size()
+        if not (x_d1 is None):
+            B,C,H,W = x_d1.size()
         f_d1 = cp.decompose_depth_map([], torch.div(x_d1,cp.quick_gm(x_d1.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)), 3)[::-1]
-        f_d6 = cp.decompose_depth_map([], x_d6, 3, relative_map=True)[::-1]
-        f_d7 = cp.decompose_depth_map([], x_d7, 4, relative_map=True)[::-1]
-        f_d8 = cp.decompose_depth_map([], x_d8, 5, relative_map=True)[::-1]
-        f_d9 = cp.decompose_depth_map([], x_d9, 6, relative_map=True)[::-1]
+        #f_d6 = cp.decompose_depth_map([], x_d6, 3, relative_map=True)[::-1]
+        #f_d7 = cp.decompose_depth_map([], x_d7, 4, relative_map=True)[::-1]
+        #f_d8 = cp.decompose_depth_map([], x_d8, 5, relative_map=True)[::-1]
+        #f_d9 = cp.decompose_depth_map([], x_d9, 6, relative_map=True)[::-1]
         #print(f_d1, f_d6, f_d7, f_d8, f_d9)
         #bring into matrix form
-        y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9], use_cuda)
-        self.weight_layer.print_grads()
+        #y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9], use_cuda)
+        y_hat = cp.relative_fine_detail_matrix([f_d1], use_cuda)
+
+        #self.weight_layer.print_grads()
         #print(self.weight_layer.weight_list)
         #self.weight_layer.print_grads()
         #print(list(self.weight_layer.parameters()))
+        #print(y_hat)
         y_hat = self.weight_layer(y_hat)
         return y_hat, x_d1, ord_labels
 
@@ -422,9 +427,10 @@ class Quantization():
         elif id == 7:
             return 128
 class Weights(nn.Module):
-    def __init__(self, vector_sizes, use_cuda):
+    def __init__(self, vector_sizes, use_cuda, relative_only):
         super(Weights, self).__init__()
         self.use_cuda = use_cuda
+        self.relative_only = relative_only
         if self.use_cuda:
             self.d0 = nn.Parameter(torch.abs(torch.randn((vector_sizes[0],1))).cuda())
             self.f1 = nn.Parameter(torch.abs(torch.randn((vector_sizes[1],1))).cuda())
@@ -463,7 +469,7 @@ class Weights(nn.Module):
             print(weight.grad)
     
     def forward(self, x):
-        return cp.make_pred(self.weight_list, x, self.use_cuda)
+        return cp.make_pred(self.weight_list, x, self.use_cuda, self.relative_only)
 
 def _make_wsm_vertical_(in_channels, out_channels, kernel_size, stride):
     """Stride has to be chosen in a way that only one convolution is performed
