@@ -99,9 +99,9 @@ class DepthEstimationNet(BaseModel):
         if use_cuda:
             x.cuda()
         x_d1, ord_labels = None, None
-        x_d1, ord_labels = self.d_1(x)#regular
+        #_d1, ord_labels = self.d_1(x)#regular
         #print(x_d1)
-        #x_d6 = self.d_6(x)#relative
+        x_d6 = self.d_6(x)#relative
         #print(x_d6)
         #x_d7 = self.d_7(x)#relative
         #x_d8 = self.d_8(x)#relative
@@ -112,15 +112,15 @@ class DepthEstimationNet(BaseModel):
         #B,C,H,W = x_d6.size()
         if not (x_d1 is None):
             B,C,H,W = x_d1.size()
-        f_d1 = cp.decompose_depth_map([], torch.div(x_d1,cp.quick_gm(x_d1.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)), 3)[::-1]
-        #f_d6 = cp.decompose_depth_map([], x_d6, 3, relative_map=True)[::-1]
+        #f_d1 = cp.decompose_depth_map([], torch.div(x_d1,cp.quick_gm(x_d1.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)), 3)[::-1]
+        f_d6 = cp.decompose_depth_map([], x_d6, 3, relative_map=True)[::-1]
         #f_d7 = cp.decompose_depth_map([], x_d7, 4, relative_map=True)[::-1]
         #f_d8 = cp.decompose_depth_map([], x_d8, 5, relative_map=True)[::-1]
         #f_d9 = cp.decompose_depth_map([], x_d9, 6, relative_map=True)[::-1]
         #print(f_d1, f_d6, f_d7, f_d8, f_d9)
         #bring into matrix form
         #y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9], use_cuda)
-        y_hat = cp.relative_fine_detail_matrix([f_d1], use_cuda)
+        y_hat = cp.relative_fine_detail_matrix([f_d6], use_cuda)
 
         #self.weight_layer.print_grads()
         #print(self.weight_layer.weight_list)
