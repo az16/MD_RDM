@@ -122,11 +122,11 @@ class DepthEstimationNet(BaseModel):
         #y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9], use_cuda)
         y_hat = cp.relative_fine_detail_matrix([f_d6], use_cuda)
 
-        #self.weight_layer.print_grads()
+        self.weight_layer.print_grads()
         #print(self.weight_layer.weight_list)
         #self.weight_layer.print_grads()
-        #print(list(self.weight_layer.parameters()))
-        #print(y_hat)
+        print(list(self.weight_layer.parameters()))
+        print("yhat before fine detail part:\n{0}".format(y_hat))
         y_hat = self.weight_layer(y_hat)
         return y_hat, x_d1, ord_labels
 
