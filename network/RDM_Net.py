@@ -13,13 +13,13 @@ class BaseModel(nn.Module):
         # Args:
         #    path (str): file path
         
-        parameters = torch.load(path)
+        # parameters = torch.load(path)
 
-        if "optimizer" in parameters:
-            parameters = parameters["model"]
+        # if "optimizer" in parameters:
+        #     parameters = parameters["model"]
 
-        self.load_state_dict(parameters)
-        # pass
+        # self.load_state_dict(parameters)
+        pass
         
         
 class DepthEstimationNet(BaseModel):
