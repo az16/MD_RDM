@@ -80,8 +80,10 @@ class RelativeDephModule(pl.LightningModule):
             ord_y = self.compute_ordinal_target(ord_depth_pred, y)
             ord_loss = l.Ordinal_Loss().calc(ord_label_pred, ord_y, cuda=is_cuda)
 
-        mse = self.criterion(final_depth, y)
-        loss_all = mse + ord_loss + fine_detail_loss
+        mse = torch.sqrt(self.criterion(final_depth, y))
+        loss_all = mse  + fine_detail_loss
+        if not ord_loss == 0:
+            loss_all += ord_loss
        
         self.log("MSE", mse, prog_bar=True)
         self.log("Ord_Loss", ord_loss, prog_bar=True)
