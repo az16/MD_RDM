@@ -14,7 +14,7 @@ class RelativeDephModule(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self.metric_logger = MetricLogger(metrics=metrics, module=self)
-        self.train_loader = torch.utils.data.DataLoader(NYUDataset(path, dataset_type='sparse_2_dense', split="train", output_size=(226, 226)),
+        self.train_loader = torch.utils.data.DataLoader(NYUDataset(path, dataset_type='labeled', split="train", output_size=(226, 226)),
                                                     batch_size=batch_size, 
                                                     shuffle=True, 
                                                     num_workers=worker, 
@@ -85,9 +85,9 @@ class RelativeDephModule(pl.LightningModule):
         if not ord_loss == 0:
             loss_all += ord_loss
        
-        self.log("MSE", mse, prog_bar=True)
+        self.log("RMSE", mse, prog_bar=True)
         self.log("Ord_Loss", ord_loss, prog_bar=True)
-        self.log("Fine_Detail", fine_detail_loss, prog_bar=True)             
+        self.log("Fine_Detail_MSE", fine_detail_loss, prog_bar=True)             
         return self.metric_logger.log_train(final_depth, self.normalize(y), loss_all)
 
     def validation_step(self, batch, batch_idx):

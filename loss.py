@@ -67,10 +67,7 @@ class RMSE_Loss():
         return loss
 
 class L2_Loss():
-    def __init__(self):
-        self.loss = []
-
-    def calc(self, yhat, y):
+    def forward(self, yhat, y):
         sqr_err_list = []
         for i in range(7):
             sqr_err_list.append(torch.sum(torch.abs(y[i]-yhat[i])**2))

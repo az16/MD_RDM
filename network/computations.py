@@ -404,19 +404,19 @@ def recombination(list_of_components, n=7):
     """
     if list_of_components[0].shape[2] == 1:
 
-        d_0 = torch.log(multi_upsample(list_of_components.pop(0), n))
+        d_0 = multi_upsample(list_of_components.pop(0), n)
 
-        result =  torch.log(multi_upsample(list_of_components.pop(0), n-1))
+        result =  multi_upsample(list_of_components.pop(0), n-1)
         for i in range(len(list_of_components)):
             ## print(len(list_of_components), i)
-            result = result+torch.log(multi_upsample(list_of_components[i], n-(i+2)))
+            result = result+multi_upsample(list_of_components[i], n-(i+2))
         
         optimal_map = d_0 + result 
     else:
-        result =  torch.log(multi_upsample(list_of_components.pop(0), n-1))
+        result =  multi_upsample(list_of_components.pop(0), n-1)
         for i in range(len(list_of_components)):
             ## print(len(list_of_components), i)
-            result = result+torch.log(multi_upsample(list_of_components[i], n-(i+2)))
+            result = result+multi_upsample(list_of_components[i], n-(i+2))
         optimal_map = result
     return optimal_map
 
@@ -475,9 +475,9 @@ def make_matrix(list_of_candidates, cuda):
     #print(list_of_candidates)
     candidates = []
     if cuda:
-        candidates = [x.view(B,1,C*H*W).cuda() for x in list_of_candidates]
+        candidates = [torch.log(x).view(B,1,C*H*W).cuda() for x in list_of_candidates]
     else:
-        candidates = [x.view(B,1,C*H*W) for x in list_of_candidates]
+        candidates = [torch.log(x).view(B,1,C*H*W) for x in list_of_candidates]
     #print(candidates)
     result = torch.cat(candidates, dim=1)
     #print(result.is_cuda)
@@ -505,20 +505,16 @@ def optimize_components(yhat, y, cuda):
     #optimizer.zero_grad()
     # loss = [x.backward() for x in loss]
     # optimizer.step()
+    #print(loss)
 
-    return pred, torch.mean(torch.as_tensor(loss))
+    return pred, torch.sum(torch.as_tensor(loss)) #torch.mean(torch.as_tensor(loss))
 
 def make_pred(w, A, cuda, relative_only):
     weights = w
     if relative_only:
         weights = w[1::]
-    # print(w.is_cuda)
-    # print(A.is_cuda)
-    #print(len(A), len(w))
     for i in range(len(A)):
         B, M = A[i].shape[0], A[i].shape[2]
-        # print(w[i].is_cuda)
-        # print(A[i].is_cuda)
         if cuda:
             tmp = torch.zeros((B, M, 1)).cuda()
             for b in range(A[i].shape[0]):
@@ -527,11 +523,7 @@ def make_pred(w, A, cuda, relative_only):
         else:
             tmp = torch.zeros((B, M, 1))
             for b in range(A[i].shape[0]):
-                #print(matmul(A[i][b].T.float(), w[i].float()).shape)
-                #print((A[i][b].T.float() @ w[i].float()).shape)
                 tmp[b] = matmul(A[i][b].T.float(), weights[i].float()) 
-                #tmp[b] = (A[i][b].T.float() @ w[i].float())
-                #print(torch.eq(test, tmp[b]))
             A[i] = tmp.view(B,1,int(math.sqrt(M)),int(math.sqrt(M)))
     return A
 
@@ -547,6 +539,7 @@ def squared_err(yhat,y, cuda):
             sqr_err_list.append(torch.nn.MSELoss()(yhat[i],y[i]).cuda())
         else:
             sqr_err_list.append(torch.nn.MSELoss()(yhat[i],y[i]))
+        
 
     return sqr_err_list
 
