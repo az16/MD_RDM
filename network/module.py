@@ -85,9 +85,9 @@ class RelativeDephModule(pl.LightningModule):
         if not ord_loss == 0:
             loss_all += ord_loss
        
-        self.log("RMSE", mse, prog_bar=True)
+        self.log("MSE", mse, prog_bar=True)
         self.log("Ord_Loss", ord_loss, prog_bar=True)
-        self.log("Fine_Detail_MSE", fine_detail_loss, prog_bar=True)             
+        self.log("Fine_Detail", fine_detail_loss, prog_bar=True)             
         return self.metric_logger.log_train(final_depth, self.normalize(y), loss_all)
 
     def validation_step(self, batch, batch_idx):
