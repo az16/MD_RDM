@@ -132,7 +132,7 @@ class DepthEstimationNet(BaseModel):
         #print(list(self.weight_layer.parameters()))
         #print("yhat before fine detail part:\n{0}".format(y_hat))
         y_hat = self.weight_layer(y_hat)
-        print("NaN net output: {0}".format(torch.isnan(y_hat).any()))
+        print("NaN net output: {0}".format(torch.isnan(y_hat[0]).any()))
         return y_hat, x_d1, ord_labels
 
 class Decoder(nn.Module):
