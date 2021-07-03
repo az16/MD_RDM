@@ -70,6 +70,7 @@ class DepthEstimationNet(BaseModel):
     def forward(self, x):
         #encoder propagation
         # print("Encoder input: {0}".format(x))
+        print("NaN encoder input: {0}".format(torch.isnan(x).any()))
         x = self.encoder.conv_e1(x)
         # print("Encoder layer 1: {0}".format(x))
         #print("Encoder layer 1 weights: {0}".format(self.encoder.conv_e1.weight.grad))
@@ -96,10 +97,12 @@ class DepthEstimationNet(BaseModel):
         #according to the authors, optimal performance is reached with decoders
         #1,6,7,8,9
         ## print("Encoder output: {0}".format(x))
+        print("NaN encoder output: {0}".format(torch.isnan(x).any()))
         if use_cuda:
             x.cuda()
         x_d1, ord_labels = None, None
         x_d1, ord_labels = self.d_1(x)#regular
+        print("NaN after decoder: {0}".format(torch.isnan(x_d1).any()))
         #print(x_d1)
         #x_d6 = self.d_6(x)#relative
         #x_d7 = self.d_7(x)#relative
@@ -113,6 +116,7 @@ class DepthEstimationNet(BaseModel):
             B,C,H,W = x_d1.size()
         #print(torch.isnan(x_d6).any())
         f_d1 = cp.decompose_depth_map([], torch.div(x_d1,cp.quick_gm(x_d1.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)), 3)[::-1]
+        print("NaN after decomp: {0}".format(torch.isnan(f_d1).any()))
         #f_d6 = cp.decompose_depth_map([], x_d6, 3, relative_map=True)[::-1]
         #f_d7 = cp.decompose_depth_map([], x_d7, 4, relative_map=True)[::-1]
         #f_d8 = cp.decompose_depth_map([], x_d8, 5, relative_map=True)[::-1]
@@ -121,7 +125,7 @@ class DepthEstimationNet(BaseModel):
         #bring into matrix form
         #y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9], use_cuda)
         y_hat = cp.relative_fine_detail_matrix([f_d1], use_cuda)
-
+        print("NaN after logspace switch: {0}".format(torch.isnan(y_hat).any()))
         #self.weight_layer.print_grads()
         #print(self.weight_layer.weight_list)
         #self.weight_layer.print_grads()
