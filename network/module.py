@@ -115,7 +115,7 @@ class RelativeDephModule(pl.LightningModule):
         target = torch.abs(target)
         target = target.clamp(0.0001, torch.max(target))
         assert (target > 0).any(), "Invalid target!"
-        print(normalize(target))
+        print(self.normalize(target))
         component_target = cp.decompose_depth_map([], self.normalize(target), 7)[::-1]
         print(component_target)
         if has_ordinal:
