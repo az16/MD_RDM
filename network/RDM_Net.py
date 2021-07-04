@@ -70,7 +70,6 @@ class DepthEstimationNet(BaseModel):
     def forward(self, x):
         #encoder propagation
         # print("Encoder input: {0}".format(x))
-        print("NaN encoder input: {0}".format(torch.isnan(x).any()))
         x = self.encoder.conv_e1(x)
         # print("Encoder layer 1: {0}".format(x))
         #print("Encoder layer 1 weights: {0}".format(self.encoder.conv_e1.weight.grad))
