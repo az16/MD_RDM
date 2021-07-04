@@ -1,5 +1,6 @@
 import torch
 import pytorch_lightning as pl
+import numpy as np
 from torch import cuda
 from metrics import MetricLogger
 from network.RDM_Net import DepthEstimationNet
@@ -108,12 +109,11 @@ class RelativeDephModule(pl.LightningModule):
     def compute_final_depth(self, fine_detail_list, target, has_ordinal):
         #decompose target map
         B,C,H,W = target.size()
-        #target = self.normalize(target)
-        #print(cp.quick_gm(y.view(B,H*W,1)).shape)
-        #target = torch.div(target,cp.quick_gm(target.view(B,H*W,1)).expand(B,H*W).view(B,1,H,W))
-        #print("Target contains 0: {0}\nTarget < 0: {1}".format(0 in target, (target<0).any()))
+        
+        #force target > 0
         target = torch.abs(target)
-
+        target = np.clip(target, 0.0001, torch.max(target), target)
+        
         component_target = cp.decompose_depth_map([], self.normalize(target), 7)[::-1]
         if has_ordinal:
             ord_components = cp.decompose_depth_map([], self.normalize(u.depth2label_sid(cp.resize(target,8), cuda=is_cuda)), 3)[::-1]
