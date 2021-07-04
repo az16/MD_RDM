@@ -111,7 +111,11 @@ class RelativeDephModule(pl.LightningModule):
         #target = self.normalize(target)
         #print(cp.quick_gm(y.view(B,H*W,1)).shape)
         #target = torch.div(target,cp.quick_gm(target.view(B,H*W,1)).expand(B,H*W).view(B,1,H,W))
+        print("Regular Target: {0} \n".format(target))
+        print("Normalized Target: {0} \n".format(self.normalize(target)))
+
         component_target = cp.decompose_depth_map([], self.normalize(target), 7)[::-1]
+        print("Decomposed Target: {0} \n".format(component_target))
         if has_ordinal:
             ord_components = cp.decompose_depth_map([], self.normalize(u.depth2label_sid(cp.resize(target,8), cuda=is_cuda)), 3)[::-1]
             component_target[0] = ord_components[0]
