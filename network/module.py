@@ -16,7 +16,7 @@ class RelativeDephModule(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self.metric_logger = MetricLogger(metrics=metrics, module=self)
-        self.train_loader = torch.utils.data.DataLoader(NYUDataset(path, dataset_type='sparse_2_dense', split="train", output_size=(226, 226)),
+        self.train_loader = torch.utils.data.DataLoader(NYUDataset(path, dataset_type='labeled', split="train", output_size=(226, 226)),
                                                     batch_size=batch_size, 
                                                     shuffle=True, 
                                                     num_workers=worker, 
@@ -112,13 +112,14 @@ class RelativeDephModule(pl.LightningModule):
         B,C,H,W = target.size()
         
         #force target > 0
-        target = torch.abs(target)
-        target = target.clamp(0.0001, torch.max(target))
+        if (target <= 0).any():
+            target = torch.abs(target)
+            target = target.clamp(0.0001, torch.max(target))
         assert (target > 0).any(), "Invalid target!"
-        print((self.normalize(target)<= 0).any())
+        #print((self.normalize(target)<= 0).any())
         component_target = cp.decompose_depth_map([], self.normalize(target), 7)[::-1]
-        for c in component_target:
-            print(torch.isnan(c).any())
+        #for c in component_target:
+        #    print(torch.isnan(c).any())
         if has_ordinal:
             ord_components = cp.decompose_depth_map([], self.normalize(u.depth2label_sid(cp.resize(target,8), cuda=is_cuda)), 3)[::-1]
             component_target[0] = ord_components[0]
