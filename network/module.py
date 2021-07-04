@@ -1,3 +1,4 @@
+from unicodedata import normalize
 import torch
 import pytorch_lightning as pl
 import numpy as np
@@ -114,8 +115,9 @@ class RelativeDephModule(pl.LightningModule):
         target = torch.abs(target)
         target = target.clamp(0.0001, torch.max(target))
         assert (target > 0).any(), "Invalid target!"
-        
+        print(normalize(target))
         component_target = cp.decompose_depth_map([], self.normalize(target), 7)[::-1]
+        print(component_target)
         if has_ordinal:
             ord_components = cp.decompose_depth_map([], self.normalize(u.depth2label_sid(cp.resize(target,8), cuda=is_cuda)), 3)[::-1]
             component_target[0] = ord_components[0]
