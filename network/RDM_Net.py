@@ -123,7 +123,7 @@ class DepthEstimationNet(BaseModel):
         #print(f_d1, f_d6, f_d7, f_d8, f_d9)
         #bring into matrix form
         #y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9], use_cuda)
-        y_hat = cp.relative_fine_detail_matrix([f_d1], use_cuda)
+        y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6], use_cuda)
         #print("NaN after logspace switch: {0}".format(torch.isnan(y_hat[0]).any()))
         #self.weight_layer.print_grads()
         #print(self.weight_layer.weight_list)
