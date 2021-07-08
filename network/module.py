@@ -119,7 +119,7 @@ class RelativeDephModule(pl.LightningModule):
         gt = target
         mask = target > 0
         target = gt * mask 
-        print(torch.is_nan(self.normalize(target)).any())
+        print(torch.isnan(self.normalize(target)).any())
         component_target = cp.decompose_depth_map([], self.normalize(target), 7)[::-1]
         #for c in component_target:
         #   print(torch.isnan(c).any())
