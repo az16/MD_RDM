@@ -631,7 +631,8 @@ def get_labels_sid(args, depth):
     return labels.int()
 
 if __name__ == "__main__":
-    test = torch.abs(torch.randn((4,256,64)))
-    r = alternating_least_squares(test,n=4, cuda=False, debug=True)
+    # test = torch.abs(torch.randn((4,256,64)))
+    # r = alternating_least_squares(test,n=4, cuda=False, debug=True)
     
-    print(r.shape)
+    # print(r.shape)
+    print(torch. __version__ )
