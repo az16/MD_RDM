@@ -534,7 +534,7 @@ def squared_err(yhat,y, cuda):
     for i in range(len(yhat)):
         #if i==0:
         #print(yhat[i].is_cuda, y[i].is_cuda)
-        #print(yhat[i], y[i])
+        print(torch.isnan(yhat[i]).any(), torch.isnan(y[i]).any())
         if cuda:
             sqr_err_list.append(torch.nn.MSELoss()(yhat[i],y[i]).cuda())
         else:

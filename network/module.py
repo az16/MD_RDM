@@ -117,19 +117,17 @@ class RelativeDephModule(pl.LightningModule):
         #     target = target.clamp(0.0001, torch.max(target))
         #assert (target >= 0).any(), "Invalid target!"
         gt = target
-        print((gt<0).any())
         mask = target > 0
         target = gt * mask 
-        print((target<0).any())
-        print((self.normalize(target)<= 0).any())
+        print(torch.is_nan(self.normalize(target)<= 0).any())
         component_target = cp.decompose_depth_map([], self.normalize(target), 7)[::-1]
-        for c in component_target:
-           print(torch.isnan(c).any())
+        #for c in component_target:
+        #   print(torch.isnan(c).any())
         if has_ordinal:
             ord_components = cp.decompose_depth_map([], self.normalize(u.depth2label_sid(cp.resize(target,8), cuda=is_cuda)), 3)[::-1]
             component_target[0] = ord_components[0]
-        for c in component_target:
-           print(torch.isnan(c).any())
+        # for c in component_target:
+        #    print(torch.isnan(c).any())
         #optimize weight layer
         components, loss = cp.optimize_components(fine_detail_list, component_target, is_cuda)
         #returns optimal candidates are recombined to final depth map
