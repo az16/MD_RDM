@@ -118,8 +118,8 @@ class RelativeDephModule(pl.LightningModule):
         #assert (target >= 0).any(), "Invalid target!"
         gt = target
         mask1 = target > 0
-        #mask2 = (target < 0) + 1e8
-        target = torch.abs(gt * mask1) 
+        mask2 = (target < 0) + 1e8
+        target = gt * mask1 + mask2
         print(torch.isnan(self.normalize(target)).any())
         component_target = cp.decompose_depth_map([], self.normalize(target), 7)[::-1]
         #for c in component_target:
