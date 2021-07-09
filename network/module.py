@@ -74,7 +74,7 @@ class RelativeDephModule(pl.LightningModule):
         #mask target
         gt = y
         mask1 = y > 0
-        mask2 = (y < 0) + 1e8
+        mask2 = (y < 0) + 1e-8
         y = gt * mask1 + mask2
 
         fine_details, ord_depth_pred, ord_label_pred = self(x)
@@ -108,7 +108,7 @@ class RelativeDephModule(pl.LightningModule):
         #mask target
         gt = y
         mask1 = y > 0
-        mask2 = (y < 0) + 1e8
+        mask2 = (y < 0) + 1e-8
         y = gt * mask1 + mask2
         fine_details, _, _ = self(x)
         has_ordinal = fine_details[0].shape[2] == 1
