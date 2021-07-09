@@ -64,15 +64,19 @@ class RelativeDephModule(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
-        #print(x.dtype, y.dtype)
-        #print(torch.min(y), torch.max(y))
+        
         y = cp.resize(y,128)
-        #print(torch.min(y), torch.max(y))
 
         if is_cuda:
             y = y.cuda() 
             #x = x.cuda()
-            
+
+        #mask target
+        gt = y
+        mask1 = y > 0
+        mask2 = (y < 0) + 1e8
+        y = gt * mask1 + mask2
+
         fine_details, ord_depth_pred, ord_label_pred = self(x)
         ord_loss = 0
         has_ordinal = fine_details[0].shape[2] == 1
@@ -100,7 +104,12 @@ class RelativeDephModule(pl.LightningModule):
         if is_cuda:
             y = y.cuda() 
             #x = x.cuda()
-            
+        
+        #mask target
+        gt = y
+        mask1 = y > 0
+        mask2 = (y < 0) + 1e8
+        y = gt * mask1 + mask2
         fine_details, _, _ = self(x)
         has_ordinal = fine_details[0].shape[2] == 1
         y_hat, _ = self.compute_final_depth(fine_details, y, has_ordinal=has_ordinal)
@@ -110,25 +119,13 @@ class RelativeDephModule(pl.LightningModule):
     def compute_final_depth(self, fine_detail_list, target, has_ordinal):
         #decompose target map
         B,C,H,W = target.size()
-        
-        #force target > 0
-        # if (target <= 0).any():
-        #     target = torch.abs(target)
-        #     target = target.clamp(0.0001, torch.max(target))
-        #assert (target >= 0).any(), "Invalid target!"
-        gt = target
-        mask1 = target > 0
-        mask2 = (target < 0) + 1e8
-        target = gt * mask1 + mask2
-        #print(torch.isnan(self.normalize(target)).any())
+
         component_target = cp.decompose_depth_map([], self.normalize(target), 7)[::-1]
-        #for c in component_target:
-        #   print(torch.isnan(c).any())
+
         if has_ordinal:
             ord_components = cp.decompose_depth_map([], self.normalize(u.depth2label_sid(cp.resize(target,8), cuda=is_cuda)), 3)[::-1]
             component_target[0] = ord_components[0]
-        # for c in component_target:
-        #    print(torch.isnan(c).any())
+        
         #optimize weight layer
         components, loss = cp.optimize_components(fine_detail_list, component_target, is_cuda)
         #returns optimal candidates are recombined to final depth map
