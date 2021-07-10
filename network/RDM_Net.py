@@ -4,8 +4,9 @@ import torchvision
 import numpy as np
 import scipy.io
 import network.computations as cp
+#import computations as cp
 
-use_cuda = True
+use_cuda = False
 freeze_encoder = False
 class BaseModel(nn.Module):
     def load(self, path):
@@ -141,7 +142,7 @@ class Decoder(nn.Module):
         """Code to assemble decoder block"""
         assert num_wsm_layers < 5 and num_wsm_layers >= 0
         self.id = id
-        self.dense_layer = torchvision.models.densenet._DenseBlock(24, 1056, 8, 48, 0.0, True)
+        self.dense_layer = torchvision.models.densenet._DenseBlock(24, 528, 8, 48, 0.0, True)
         self.wsm_block = _make_wsm_layers_(num_wsm_layers)
         self.conv1 = nn.Conv2d(in_channels=_wsm_output_planes(id), out_channels=1, kernel_size=1)
         self.conv2 = nn.Conv2d(in_channels=_wsm_output_planes(id), out_channels=180, kernel_size=1)
@@ -150,9 +151,9 @@ class Decoder(nn.Module):
     def forward(self, x):
 
         x = self.dense_layer(x)
-        ## print(x.shape)
+        #print(x.shape)
         x = self.wsm_block(x)
-        ## print(x.shape)
+        #print(x.shape)
         if self.id > 5:
             x = self.conv1(x)#make feature map have only one channel
         if self.id == 1:
@@ -193,7 +194,7 @@ class WSMLayer(nn.Module):
 
         #This makes sure wsm blocks can be cascaded
         if(self.id == 1):
-            raw = 2208
+            raw = 1680
         else:
             raw = int(2*in_channels)
 
@@ -521,24 +522,24 @@ def _make_encoder_():
 def _get_denseNet_Components(denseNet):
 
     encoder = nn.Module()
-    encoder.conv_e1 = nn.Conv2d(in_channels=3, kernel_size=7, stride=2, out_channels=96, padding=3)
+    encoder.conv_e1 = nn.Conv2d(in_channels=3, kernel_size=7, stride=2, out_channels=48, padding=3)
     encoder.max_e1 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-    encoder.dense_e2 = denseNet._DenseBlock(6, 96, 57, 48, 0.0, True)
-    encoder.trans_e2 = denseNet._Transition(num_input_features=384, num_output_features=192)
-    encoder.dense_e3 = denseNet._DenseBlock(12, 192, 29, 48, 0.0, True)
-    encoder.trans_e3 = denseNet._Transition(num_input_features=768, num_output_features=384)
-    encoder.dense_e4 = denseNet._DenseBlock(36, 384, 15, 48, 0.0, True)
-    encoder.trans_e4 = denseNet._Transition(num_input_features=2112, num_output_features=1056)
+    encoder.dense_e2 = denseNet._DenseBlock(6, 48, 57, 48, 0.0, True)
+    encoder.trans_e2 = denseNet._Transition(num_input_features=336, num_output_features=96)
+    encoder.dense_e3 = denseNet._DenseBlock(12, 96, 29, 48, 0.0, True)
+    encoder.trans_e3 = denseNet._Transition(num_input_features=672, num_output_features=192)
+    encoder.dense_e4 = denseNet._DenseBlock(36, 192, 15, 48, 0.0, True)
+    encoder.trans_e4 = denseNet._Transition(num_input_features=1920, num_output_features=528)
     encoder.pad_br = nn.ZeroPad2d((0,1,0,1))
 
     return encoder
 
 def _make_wsm_layers_(num_of_layers):
     
-    wsm_d1 = WSMLayer(1664, 16, 16, 1)
-    wsm_d2 = WSMLayer(832, 32, 32, 2)
-    wsm_d3 = WSMLayer(416, 64, 64, 3)
-    wsm_d4 = WSMLayer(208, 128, 128, 4)
+    wsm_d1 = WSMLayer(832, 16, 16, 1)
+    wsm_d2 = WSMLayer(416, 32, 32, 2)
+    wsm_d3 = WSMLayer(208, 64, 64, 3)
+    wsm_d4 = WSMLayer(104, 128, 128, 4)
 
     wsm_block = nn.Sequential()
     if num_of_layers > 0:
@@ -554,15 +555,15 @@ def _make_wsm_layers_(num_of_layers):
 
 def _wsm_output_planes(decoder_id):
     if decoder_id==6 or decoder_id == 1:
-        return 2208
+        return 1680
     elif decoder_id==7:
-        return 1664
-    elif decoder_id==8:
         return 832
-    elif decoder_id==9:
+    elif decoder_id==8:
         return 416
-    elif decoder_id==10:
+    elif decoder_id==9:
         return 208
+    elif decoder_id==10:
+        return 104
     else:
         return 1
 
@@ -578,7 +579,8 @@ def debug(container, id):
 if __name__ == "__main__":
     inp = torch.randn((4, 3, 226, 226))
 
-    model = DepthEstimationNet(use_cuda=False)
-    r = model(inp)
+    model = DepthEstimationNet()
+    r,_,_ = model(inp)
+    print(r)
 
 
