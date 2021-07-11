@@ -308,7 +308,7 @@ def find_nans(container):
 def resize(depth_map, newsize):
     
     depth_map = depth_map.double()
-    return nn.functional.interpolate(depth_map, size=newsize, mode='bicubic', align_corners=False)
+    return nn.functional.interpolate(depth_map, size=newsize, mode='bicubic')
 
 def alt_resize(depthmap, n=1):
     if n==1:
@@ -385,7 +385,7 @@ def decompose_depth_map(container, dn, n, relative_map=False):
         #     print("F_{0}: {1}".format(n, quick_gm(dn.view(dn.shape[0],dn.shape[2]*dn.shape[3],1))))
         return container
     elif n >= 1:
-        dn_1 = resize(dn, 2**(n-1))
+        dn_1 = geometric_resize(dn) #resize(dn, 2**(n-1))
         fn = torch.div(dn,upsample(dn_1))
         #print("F_{0}: {1}".format(n, torch.abs(quick_gm(fn.view(fn.shape[0],fn.shape[2]*fn.shape[3],1)))))
         container.append(fn)
@@ -474,11 +474,18 @@ def make_matrix(list_of_candidates, cuda):
     #print(cuda)
     #print(list_of_candidates)
     candidates = []
+    # c_1 = []
+    # c_2 = []
     if cuda:
         candidates = [torch.log(x).view(B,1,C*H*W).cuda() for x in list_of_candidates]
     else:
+        #c_1 = [(x.view(B,1,C*H*W) == 0).any() for x in list_of_candidates]
+        #c_2 = [(x.view(B,1,C*H*W) < 0).any() for x in list_of_candidates]
         candidates = [torch.log(x).view(B,1,C*H*W) for x in list_of_candidates]
-    #print(candidates)
+    #t_c_nl = [torch.isnan(x).any() for x in c_nl]
+    #t_c = [torch.isnan(x).any() for x in candidates]
+    #print("Nan in candidates before log shift and after: before = {0}, after = {1}".format(True in t_c_nl, True in t_c))
+    #print(True in c_1, True in c_2)
     result = torch.cat(candidates, dim=1)
     #print(result.is_cuda)
     return result
@@ -515,6 +522,8 @@ def make_pred(w, A, cuda, relative_only):
         weights = w[1::]
     for i in range(len(A)):
         B, M = A[i].shape[0], A[i].shape[2]
+        # print("Candidate {0}:\r".format(i))
+        # print("Is nan: {0}\r".format(torch.isnan(A[i]).any()))
         if cuda:
             tmp = torch.zeros((B, M, 1)).cuda()
             for b in range(A[i].shape[0]):
@@ -534,7 +543,7 @@ def squared_err(yhat,y, cuda):
     for i in range(len(yhat)):
         #if i==0:
         #print(yhat[i].is_cuda, y[i].is_cuda)
-        #print(torch.isnan(yhat[i]).any(), torch.isnan(y[i]).any())
+        #print("(Pred nan, Target nan) = ({0},{1})".format(torch.isnan(yhat[i]).any(), torch.isnan(y[i]).any()))
         if cuda:
             sqr_err_list.append(torch.nn.MSELoss()(yhat[i],y[i]).cuda())
         else:
