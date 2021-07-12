@@ -388,20 +388,23 @@ def decompose_depth_map(container, dn, n, relative_map=False):
         #     print("F_{0}: {1}".format(n, quick_gm(dn.view(dn.shape[0],dn.shape[2]*dn.shape[3],1))))
         return container
     elif n >= 1:
-        dn_1 = resize(dn, 2**(n-1))
+        B,C,W,H = dn.size()
+        dn_1 = torch.zeros((B,C,int(W/2)),int(H/2))
+        dn_1 = torch.Tensor.resize_as(dn, dn_1) #resize(dn, 2**(n-1))
 
         if dn.is_cuda:
             dn_1 = dn_1.cuda()
+            
         fn = torch.div(dn,upsample(dn_1))
 
-        mask_n = torch.isnan(fn)
-        mask_i = torch.isinf(fn)
-        if mask_n.any():
-            tmp = fn 
-            fn = tmp * (mask_n == 0)
-        if mask_i.any():
-            tmp = fn 
-            fn = tmp * (mask_i == 0)
+        # mask_n = torch.isnan(fn)
+        # mask_i = torch.isinf(fn)
+        # if mask_n.any():
+        #     tmp = fn 
+        #     fn = tmp * (mask_n == 0)
+        # if mask_i.any():
+        #     tmp = fn 
+        #     fn = tmp * (mask_i == 0)
 
         #print("F_{0}: {1}".format(n, torch.abs(quick_gm(fn.view(fn.shape[0],fn.shape[2]*fn.shape[3],1)))))
         container.append(fn)
