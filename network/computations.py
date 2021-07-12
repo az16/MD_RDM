@@ -389,12 +389,12 @@ def decompose_depth_map(container, dn, n, relative_map=False):
         return container
     elif n >= 1:
         B,C,W,H = dn.size()
-        dn_1 = torch.zeros((B,C,int(W/2)),int(H/2))
+        dn_1 = torch.zeros((B,C,int(W/2),int(H/2)))
         dn_1 = torch.Tensor.resize_as(dn, dn_1) #resize(dn, 2**(n-1))
 
         if dn.is_cuda:
             dn_1 = dn_1.cuda()
-            
+
         fn = torch.div(dn,upsample(dn_1))
 
         # mask_n = torch.isnan(fn)
