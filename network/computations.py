@@ -310,8 +310,8 @@ def resize(depth_map, newsize):
     depth_map = depth_map.double()
     new = nn.functional.interpolate(depth_map, size=newsize)
     mask = new > 0
-    mask2 = (new <= 0) + 1
-    return ((new*mask)+mask2) 
+    #mask2 = (new <= 0) + 1
+    return (new*mask)#+mask2) 
 
 def alt_resize(depthmap, n=1):
     if n==1:
@@ -392,8 +392,19 @@ def decompose_depth_map(container, dn, n, relative_map=False):
 
         if dn.is_cuda:
             dn_1 = dn_1.cuda()
-        print("dn_1 == 0 : {0}".format((dn_1 == 0).any()))
         fn = torch.div(dn,upsample(dn_1))
+        
+        mask_n = torch.isnan(fn)
+        mask_i = torch.isinf(fn)
+        if mask_n.any():
+            tmp = fn 
+            mask = not mask_n
+            fn = tmp * mask
+        if mask_i.any():
+            tmp = fn 
+            mask = not mask_i
+            fn = tmp * mask
+
         #print("F_{0}: {1}".format(n, torch.abs(quick_gm(fn.view(fn.shape[0],fn.shape[2]*fn.shape[3],1)))))
         container.append(fn)
         return decompose_depth_map(container, dn_1, n-1, relative_map)
