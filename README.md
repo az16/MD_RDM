@@ -24,6 +24,4 @@ This is a pytorch implementation of 'Monocular Depth Estimation Using Relative D
 - [x] Dataloaders + Augmentation
 - [ ] Training (in progress)
 # Debugging and current Issues
-## Current Issues
-- [ ] Loss does not decrease, possible causes might be: Lloyd-Quantization, number of decoders/training procedure
-- [ ] Training time, could be reduced by adopting training procedure form creators' paper
+--
