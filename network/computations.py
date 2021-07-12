@@ -386,6 +386,10 @@ def decompose_depth_map(container, dn, n, relative_map=False):
         return container
     elif n >= 1:
         dn_1 = geometric_resize(dn) #resize(dn, 2**(n-1))
+        
+        if dn.is_cuda:
+            dn_1 = dn_1.cuda()
+
         fn = torch.div(dn,upsample(dn_1))
         #print("F_{0}: {1}".format(n, torch.abs(quick_gm(fn.view(fn.shape[0],fn.shape[2]*fn.shape[3],1)))))
         container.append(fn)
