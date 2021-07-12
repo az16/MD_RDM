@@ -308,7 +308,10 @@ def find_nans(container):
 def resize(depth_map, newsize):
     
     depth_map = depth_map.double()
-    return nn.functional.interpolate(depth_map, size=newsize, mode='bicubic')
+    new = nn.functional.interpolate(depth_map, size=newsize, mode='nearest', align_corners=False)
+    mask = new > 0
+    mask2 = (new <= 0) + 1e-3
+    return (new*mask+mask2) 
 
 def alt_resize(depthmap, n=1):
     if n==1:
@@ -356,7 +359,7 @@ def compress_entry(block):
 
 def upsample(depth_map):
     depth_map = depth_map.double()
-    m = nn.Upsample(scale_factor=2, mode='nearest')
+    m = nn.Upsample(scale_factor=2, mode='nearest', align_corners=False)
     return m(depth_map)
 
 def multi_upsample(depth_map, n):
@@ -385,8 +388,8 @@ def decompose_depth_map(container, dn, n, relative_map=False):
         #     print("F_{0}: {1}".format(n, quick_gm(dn.view(dn.shape[0],dn.shape[2]*dn.shape[3],1))))
         return container
     elif n >= 1:
-        dn_1 = geometric_resize(dn) #resize(dn, 2**(n-1))
-        
+        dn_1 = resize(dn, 2**(n-1))
+
         if dn.is_cuda:
             dn_1 = dn_1.cuda()
 
