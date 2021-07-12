@@ -497,18 +497,19 @@ def make_matrix(list_of_candidates, cuda):
     #print(cuda)
     #print(list_of_candidates)
     candidates = []
-    # c_1 = []
-    # c_2 = []
+    c_1 = []
+    c_2 = []
     if cuda:
         candidates = [torch.log(x).view(B,1,C*H*W).cuda() for x in list_of_candidates]
     else:
-        # c_1 = [(x.view(B,1,C*H*W) == 0).any() for x in list_of_candidates]
-        # c_2 = [(x.view(B,1,C*H*W) < 0).any() for x in list_of_candidates]
+        c_1 = [(x.view(B,1,C*H*W) == 0).any() for x in list_of_candidates]
+        c_2 = [(x.view(B,1,C*H*W) < 0).any() for x in list_of_candidates]
         candidates = [torch.log(x).view(B,1,C*H*W) for x in list_of_candidates]
     #t_c_nl = [torch.isnan(x).any() for x in c_nl]
-    #t_c = [torch.isnan(x).any() for x in candidates]
+    t_c = [torch.isnan(x).any() for x in candidates]
     #print("Nan in candidates before log shift and after: before = {0}, after = {1}".format(True in t_c_nl, True in t_c))
-    #print("candidates == 0, < 0 = ({0},{1})".format(True in c_1, True in c_2))
+    #print("NaN after log: {0}".format(True in t_c))
+    print("== 0, < 0, Nan = ({0},{1}, {2})".format(True in c_1, True in c_2, True in t_c))
     result = torch.cat(candidates, dim=1)
     #print(result.is_cuda)
     return result
