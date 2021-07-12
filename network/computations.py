@@ -311,7 +311,7 @@ def resize(depth_map, newsize):
     new = nn.functional.interpolate(depth_map, size=newsize)
     mask = new > 0
     mask2 = (new <= 0) + 1
-    return (new*mask+mask2) 
+    return ((new*mask)+mask2) 
 
 def alt_resize(depthmap, n=1):
     if n==1:
