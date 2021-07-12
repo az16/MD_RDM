@@ -308,7 +308,7 @@ def find_nans(container):
 def resize(depth_map, newsize):
     
     depth_map = depth_map.double()
-    new = nn.functional.interpolate(depth_map, size=newsize, mode='nearest', align_corners=False)
+    new = nn.functional.interpolate(depth_map, size=newsize)
     mask = new > 0
     mask2 = (new <= 0) + 1e-3
     return (new*mask+mask2) 
