@@ -10,13 +10,13 @@ import utils as u
 import loss as l
 from dataloaders.nyu_dataloader import NYUDataset
 
-is_cuda=False
+is_cuda=True
 class RelativeDephModule(pl.LightningModule):
     def __init__(self, path, batch_size, learning_rate, worker, metrics, *args, **kwargs):
         super().__init__()
         self.save_hyperparameters()
         self.metric_logger = MetricLogger(metrics=metrics, module=self)
-        self.train_loader = torch.utils.data.DataLoader(NYUDataset(path, dataset_type='labeled', split="train", output_size=(226, 226)),
+        self.train_loader = torch.utils.data.DataLoader(NYUDataset(path, dataset_type='sparse_2_dense', split="train", output_size=(226, 226)),
                                                     batch_size=batch_size, 
                                                     shuffle=True, 
                                                     num_workers=worker, 
@@ -74,7 +74,7 @@ class RelativeDephModule(pl.LightningModule):
         #mask target
         gt = y
         mask1 = y > 0
-        mask2 = (y <= 0) + 1e-4
+        mask2 = (y <= 0) + 1e-3
         y = (gt * mask1) + mask2
 
         fine_details, ord_depth_pred, ord_label_pred = self(x)
