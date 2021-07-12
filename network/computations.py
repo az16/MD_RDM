@@ -357,6 +357,10 @@ def compress_entry(block):
 
     return result
 
+def avg_resize(depthmap):
+    r = nn.AvgPool2d(kernel_size=2,stride=2)(depthmap)
+    return r
+
 def upsample(depth_map):
     depth_map = depth_map.double()
     m = nn.Upsample(scale_factor=2, mode='nearest')
@@ -388,9 +392,9 @@ def decompose_depth_map(container, dn, n, relative_map=False):
         #     print("F_{0}: {1}".format(n, quick_gm(dn.view(dn.shape[0],dn.shape[2]*dn.shape[3],1))))
         return container
     elif n >= 1:
-        B,C,W,H = dn.size()
-        dn_1 = torch.zeros((B,C,int(W/2),int(H/2)))
-        dn_1 = torch.Tensor.resize_as(dn, dn_1) #resize(dn, 2**(n-1))
+        #B,C,W,H = dn.size()
+        #dn_1 = torch.zeros((B,C,int(W/2),int(H/2)))
+        dn_1 = avg_resize(dn) #resize(dn, 2**(n-1))
 
         if dn.is_cuda:
             dn_1 = dn_1.cuda()
@@ -659,8 +663,10 @@ def get_labels_sid(args, depth):
     return labels.int()
 
 if __name__ == "__main__":
-    # test = torch.abs(torch.randn((4,256,64)))
+    test = torch.randn((4,1,4,4))
+    print(test)
     # r = alternating_least_squares(test,n=4, cuda=False, debug=True)
-    
+    result = avg_resize(test)
+    print(result)
     # print(r.shape)
-    print(torch. __version__ )
+    #print(torch. __version__ )
