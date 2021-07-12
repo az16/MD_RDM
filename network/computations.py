@@ -359,7 +359,7 @@ def compress_entry(block):
 
 def upsample(depth_map):
     depth_map = depth_map.double()
-    m = nn.Upsample(scale_factor=2, mode='nearest', align_corners=False)
+    m = nn.Upsample(scale_factor=2, mode='nearest')
     return m(depth_map)
 
 def multi_upsample(depth_map, n):
