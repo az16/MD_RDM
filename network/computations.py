@@ -310,8 +310,8 @@ def resize(depth_map, newsize):
     depth_map = depth_map.double()
     new = nn.functional.interpolate(depth_map, size=newsize)
     mask = new > 0
-    mask2 = (new <= 0) + 1
-    return ((new*mask)+mask2) 
+    #mask2 = (new <= 0) + 1
+    return (new*mask)#+mask2) 
 
 def alt_resize(depthmap, n=1):
     if n==1:
@@ -481,18 +481,18 @@ def make_matrix(list_of_candidates, cuda):
     #print(cuda)
     #print(list_of_candidates)
     candidates = []
-    # c_1 = []
-    # c_2 = []
+    c_1 = []
+    c_2 = []
     if cuda:
         candidates = [torch.log(x).view(B,1,C*H*W).cuda() for x in list_of_candidates]
     else:
-        #c_1 = [(x.view(B,1,C*H*W) == 0).any() for x in list_of_candidates]
-        #c_2 = [(x.view(B,1,C*H*W) < 0).any() for x in list_of_candidates]
+        c_1 = [(x.view(B,1,C*H*W) == 0).any() for x in list_of_candidates]
+        c_2 = [(x.view(B,1,C*H*W) < 0).any() for x in list_of_candidates]
         candidates = [torch.log(x).view(B,1,C*H*W) for x in list_of_candidates]
     #t_c_nl = [torch.isnan(x).any() for x in c_nl]
     #t_c = [torch.isnan(x).any() for x in candidates]
     #print("Nan in candidates before log shift and after: before = {0}, after = {1}".format(True in t_c_nl, True in t_c))
-    #print(True in c_1, True in c_2)
+    print("candidates == 0, < 0 = ({0},{1})".format(True in c_1, True in c_2))
     result = torch.cat(candidates, dim=1)
     #print(result.is_cuda)
     return result
@@ -550,7 +550,7 @@ def squared_err(yhat,y, cuda):
     for i in range(len(yhat)):
         #if i==0:
         #print(yhat[i].is_cuda, y[i].is_cuda)
-        #print("(Pred nan, Target nan) = ({0},{1})".format(torch.isnan(yhat[i]).any(), torch.isnan(y[i]).any()))
+        print("squared_err(Pred nan, Target nan) = ({0},{1})".format(torch.isnan(yhat[i]).any(), torch.isnan(y[i]).any()))
         if cuda:
             sqr_err_list.append(torch.nn.MSELoss()(yhat[i],y[i]).cuda())
         else:
