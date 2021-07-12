@@ -393,17 +393,15 @@ def decompose_depth_map(container, dn, n, relative_map=False):
         if dn.is_cuda:
             dn_1 = dn_1.cuda()
         fn = torch.div(dn,upsample(dn_1))
-        
+
         mask_n = torch.isnan(fn)
         mask_i = torch.isinf(fn)
         if mask_n.any():
             tmp = fn 
-            mask = not mask_n
-            fn = tmp * mask
+            fn = tmp * (mask_n == 0)
         if mask_i.any():
             tmp = fn 
-            mask = not mask_i
-            fn = tmp * mask
+            fn = tmp * (mask_i == 0)
 
         #print("F_{0}: {1}".format(n, torch.abs(quick_gm(fn.view(fn.shape[0],fn.shape[2]*fn.shape[3],1)))))
         container.append(fn)
