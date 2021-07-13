@@ -103,7 +103,7 @@ class DepthEstimationNet(BaseModel):
             x.cuda()
         x_d1, ord_labels = None, None
         x_d1, ord_labels = self.d_1(x)#regular
-        #print("NaN after decoder: {0}".format(torch.isnan(x_d1).any()))
+        print("NaN after decoder: {0}".format(torch.isnan(x_d1).any()))
         #print(x_d1)
         #x_d6 = self.d_6(x)#relative
         #x_d7 = self.d_7(x)#relative
