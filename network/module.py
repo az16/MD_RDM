@@ -120,10 +120,10 @@ class RelativeDephModule(pl.LightningModule):
         #decompose target map
         B,C,H,W = target.size()
 
-        component_target = cp.decomp(self.normalize(target), 7)[::-1]
+        component_target = cp.decomp("c_t", self.normalize(target), 7)[::-1]
 
         if has_ordinal:
-            ord_components = cp.decomp(self.normalize(u.depth2label_sid(cp.resize(target,8), cuda=is_cuda)), 3)[::-1]
+            ord_components = cp.decomp("o_c_d", self.normalize(u.depth2label_sid(cp.resize(target,8), cuda=is_cuda)), 3)[::-1]
             component_target[0] = ord_components[0]
         
         #optimize weight layer

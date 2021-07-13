@@ -415,10 +415,10 @@ def decompose_depth_map(container, dn, n, relative_map=False):
         #print("F_{0}: {1}".format(n, torch.abs(quick_gm(fn.view(fn.shape[0],fn.shape[2]*fn.shape[3],1)))))
         container.append(fn)
         return decompose_depth_map(container, dn_1, n-1, relative_map)
-        
-def decomp(dn, n, relative=False):
-    result = []
 
+def decomp(message, dn, n, relative=False):
+    result = []
+    print(message)
     while n > 0:
         dn_1 = avg_resize(dn)
         if dn.is_cuda:
