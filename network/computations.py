@@ -415,6 +415,23 @@ def decompose_depth_map(container, dn, n, relative_map=False):
         #print("F_{0}: {1}".format(n, torch.abs(quick_gm(fn.view(fn.shape[0],fn.shape[2]*fn.shape[3],1)))))
         container.append(fn)
         return decompose_depth_map(container, dn_1, n-1, relative_map)
+        
+def decomp(dn, n, relative=False):
+    result = []
+
+    while n > 0:
+        dn_1 = avg_resize(dn)
+        if dn.is_cuda:
+            dn_1 = dn_1.cuda()
+        fn = torch.div(dn,upsample(dn_1))
+        result.append(fn)
+        dn = dn_1
+        n -= 1
+
+    if not relative:
+        result.append(dn)
+
+    return result
 
 def recombination(list_of_components, n=7):
     """
@@ -666,10 +683,11 @@ def get_labels_sid(args, depth):
     return labels.int()
 
 if __name__ == "__main__":
-    test = torch.randn((4,1,4,4))
-    print(test)
+    test = torch.abs(torch.randn((4,1,128,128)))
+    #print(test)
     # r = alternating_least_squares(test,n=4, cuda=False, debug=True)
-    result = avg_resize(test)
-    print(result)
+    result = decomp(test, 7, relative=True)[::-1]
+    for r in result:
+        print(r.shape)
     # print(r.shape)
     #print(torch. __version__ )

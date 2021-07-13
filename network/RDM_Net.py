@@ -117,14 +117,14 @@ class DepthEstimationNet(BaseModel):
         if not (x_d1 is None):
             B,C,H,W = x_d1.size()
         #print("d6 output < 0: {0}".format((x_d6 < 0).any()))
-        f_d1 = cp.decompose_depth_map([], torch.div(x_d1,cp.quick_gm(x_d1.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)), 3)[::-1]
+        f_d1 = cp.decomp(torch.div(x_d1,cp.quick_gm(x_d1.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)), 3)[::-1]
         #print("NaN after decomp: {0}".format(torch.isnan(f_d1[0]).any()))
-        #f_d6 = cp.decompose_depth_map([], x_d6, 3, relative_map=True)[::-1]
+        #f_d6 = cp.decomp(x_d6, 3, relative_map=True)[::-1]
         #check = [(x<0).any() for x in f_d6]
         #print("f_d6 < 0: {0}".format(True in check))
-        #f_d7 = cp.decompose_depth_map([], x_d7, 4, relative_map=True)[::-1]
-        #f_d8 = cp.decompose_depth_map([], x_d8, 5, relative_map=True)[::-1]
-        #f_d9 = cp.decompose_depth_map([], x_d9, 6, relative_map=True)[::-1]
+        #f_d7 = cp.decomp(x_d7, 4, relative_map=True)[::-1]
+        #f_d8 = cp.decomp(x_d8, 5, relative_map=True)[::-1]
+        #f_d9 = cp.decomp(x_d9, 6, relative_map=True)[::-1]
         #print(f_d1, f_d6, f_d7, f_d8, f_d9)
         #bring into matrix form
         #y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9], use_cuda)
