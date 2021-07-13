@@ -416,9 +416,9 @@ def decompose_depth_map(container, dn, n, relative_map=False):
         container.append(fn)
         return decompose_depth_map(container, dn_1, n-1, relative_map)
 
-def decomp(message, dn, n, relative=False):
+def decomp(dn, n, relative=False):
     result = []
-    print(message)
+    #print(message)
     while n > 0:
         dn_1 = avg_resize(dn)
         if dn.is_cuda:
