@@ -358,7 +358,7 @@ def compress_entry(block):
     return result
 
 def avg_resize(depthmap):
-    #print("d_n: {0}".format(torch.isnan(depthmap).any()))
+    print("d_n: {0}".format(torch.isnan(depthmap).any()))
     r = nn.AvgPool2d(kernel_size=2,stride=2)(depthmap)
     return r
 
@@ -395,6 +395,7 @@ def decompose_depth_map(container, dn, n, relative_map=False):
     elif n >= 1:
         #B,C,W,H = dn.size()
         #dn_1 = torch.zeros((B,C,int(W/2),int(H/2)))
+        print(n)
         dn_1 = avg_resize(dn) #resize(dn, 2**(n-1))
         #print("d_n1: ({0},{1},{2})".format(torch.isnan(dn_1).any(), (dn_1<0).any(), (dn_1 == 0).any()))
         if dn.is_cuda:
