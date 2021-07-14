@@ -124,9 +124,9 @@ class RelativeDephModule(pl.LightningModule):
 
         if has_ordinal:
             tmp = cp.avg_resize(target,4)
-            print("Sid nan: {0}".format(torch.isnan(u.depth2label_sid(tmp, cuda=is_cuda)).any()))
-            print("Sid < 0: {0}".format((u.depth2label_sid(tmp, cuda=is_cuda) < 0).any()))
-            print("Normalized Sid nan: {0}".format(self.normalize(u.depth2label_sid(tmp, cuda=is_cuda))))
+            # print("Sid nan: {0}".format(torch.isnan(u.depth2label_sid(tmp, cuda=is_cuda)).any()))
+            # print("Sid < 0: {0}".format((u.depth2label_sid(tmp, cuda=is_cuda) < 0).any()))
+            # print("Normalized Sid nan: {0}".format(self.normalize(u.depth2label_sid(tmp, cuda=is_cuda))))
             #tmp = tmp * (tmp > 0)
             ord_components = cp.decomp(self.normalize(u.depth2label_sid(tmp, cuda=is_cuda)), 3)[::-1]
             component_target[0] = ord_components[0]

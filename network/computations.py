@@ -358,7 +358,7 @@ def compress_entry(block):
     return result
 
 def avg_resize(depthmap, n):
-    print("d_n: {0}".format(torch.isnan(depthmap).any()))
+    #print("d_n: {0}".format(torch.isnan(depthmap).any()))
     result = depthmap
     for i in range(n):
         result = nn.AvgPool2d(kernel_size=2,stride=2)(result)
