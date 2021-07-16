@@ -332,11 +332,14 @@ def geometric_resize(t, kernel, stride, p):
     B, C, H, W = t.size()
     t = torch.pow(t, p) #prepare for geometric mean
     t_uf = t.unfold(2, kernel, stride).unfold(3, kernel, stride) #make patches
-    #print(t_uf.shape)
-    t_uf = t_uf.reshape(B, C, int(H/kernel), int(W/kernel), kernel*kernel).permute(0, 1, 4, 2, 3).squeeze() #arrange correctly
-    dn_1 = torch.prod(t_uf, dim=1).view(B, C, int(H/kernel), int(W/kernel)) #compute second step of geo mean
+    t_uf = t_uf.reshape(B, C, int(H/kernel), int(W/kernel), kernel*kernel).permute(0, 1, 4, 2, 3).squeeze(1) #arrange correctly
+    
+    dn_1 = torch.prod(t_uf, dim=1) #compute second step of geo mean
+    dn_1 = dn_1.view(B, C, int(H/kernel), int(W/kernel))
+    
     if t.is_cuda:
         dn_1 = dn_1.cuda()
+
     return dn_1
 
 def upsample(depth_map):
@@ -395,8 +398,8 @@ def decompose_depth_map(container, dn, n, relative_map=False):
 
 def decomp(dn, n, relative=False):
     result = []
-    #print(message)
     while n > 0:
+        #print(dn.shape)
         dn_1 = geometric_resize(dn, 2, 2, 1/4)
         if dn.is_cuda:
             dn_1 = dn_1.cuda()
@@ -659,19 +662,7 @@ def get_labels_sid(args, depth):
     #     labels = labels.cuda()
     return labels.int()
 
-def unfold_test(t, kernel, stride, p):
-    B, C, H, W = t.size()
-    t = torch.pow(t, p)
-    t_uf = t.unfold(2, kernel, stride).unfold(3, kernel, stride)
-    #print(t_uf.shape)
-    t_uf = t_uf.reshape(B, C, int(H/kernel), int(W/kernel), kernel*kernel).permute(0, 1, 4, 2, 3).squeeze()
-    r = torch.prod(t_uf, dim=1).view(B, C, int(H/kernel), int(W/kernel))
-    #print(r.shape)
-    #t = F.unfold(t,s,kernel,stride)
-    #print(t.shape)
-    return r
-
 if __name__ == "__main__":
-    test = torch.abs(torch.randn((4,1,128,128)))
-    print(alt_resize(test, n=3).shape)
+    test = torch.abs(torch.randn((4,1,4,4)))
+    print(geometric_resize(test, 2, 2, 1/4))
 
