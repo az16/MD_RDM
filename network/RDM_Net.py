@@ -451,23 +451,23 @@ class Weights(nn.Module):
         self.use_cuda = use_cuda
         self.relative_only = relative_only
         if self.use_cuda:
-            self.d0 = nn.Parameter(torch.abs(torch.randn((vector_sizes[0],1))).cuda())
-            self.f1 = nn.Parameter(torch.abs(torch.randn((vector_sizes[1],1))).cuda())
-            self.f2 = nn.Parameter(torch.abs(torch.randn((vector_sizes[2],1))).cuda())
-            self.f3 = nn.Parameter(torch.abs(torch.randn((vector_sizes[3],1))).cuda())
-            self.f4 = nn.Parameter(torch.abs(torch.randn((vector_sizes[4],1))).cuda())
-            self.f5 = nn.Parameter(torch.abs(torch.randn((vector_sizes[5],1))).cuda())
-            self.f6 = nn.Parameter(torch.abs(torch.randn((vector_sizes[6],1))).cuda())
-            self.f7 = nn.Parameter(torch.abs(torch.randn((vector_sizes[7],1))).cuda())
+            self.d0 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[0],1)), dim=0).cuda())
+            self.f1 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[1],1)), dim=0).cuda())
+            self.f2 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[2],1)), dim=0).cuda())
+            self.f3 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[3],1)), dim=0).cuda())
+            self.f4 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[4],1)), dim=0).cuda())
+            self.f5 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[5],1)), dim=0).cuda())
+            self.f6 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[6],1)), dim=0).cuda())
+            self.f7 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[7],1)), dim=0).cuda())
         else:
-            self.d0 = nn.Parameter(torch.abs(torch.randn((vector_sizes[0],1))))
-            self.f1 = nn.Parameter(torch.abs(torch.randn((vector_sizes[1],1))))
-            self.f2 = nn.Parameter(torch.abs(torch.randn((vector_sizes[2],1))))
-            self.f3 = nn.Parameter(torch.abs(torch.randn((vector_sizes[3],1))))
-            self.f4 = nn.Parameter(torch.abs(torch.randn((vector_sizes[4],1))))
-            self.f5 = nn.Parameter(torch.abs(torch.randn((vector_sizes[5],1))))
-            self.f6 = nn.Parameter(torch.abs(torch.randn((vector_sizes[6],1))))
-            self.f7 = nn.Parameter(torch.abs(torch.randn((vector_sizes[7],1))))
+            self.d0 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[0],1)), dim=0))
+            self.f1 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[1],1)), dim=0))
+            self.f2 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[2],1)), dim=0))
+            self.f3 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[3],1)), dim=0))
+            self.f4 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[4],1)), dim=0))
+            self.f5 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[5],1)), dim=0))
+            self.f6 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[6],1)), dim=0))
+            self.f7 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[7],1)), dim=0))
         self.weight_list = [self.d0, self.f1, self.f2, self.f3, self.f4, self.f5, self.f6, self.f7]
         
         for weight_vector in self.weight_list:

@@ -246,7 +246,7 @@ def quick_gm(t,rc):
     computes geometric mean for als filled matrices
     """
     rc *= rc
-    exp = 1/rc #hardcoded as sizes above 16x16 are not computed
+    exp = 1/rc
     #print(torch.pow(t,exp).shape)
     #torch.squeeze(t)
     #print(t.shape)
@@ -351,10 +351,10 @@ def compress_entry(block):
     returns geometric mean for block of 4 (for resizing)
     """
     B,H,W = block.size()
-    result = torch.zeros((B,1))
-    for b in range(B):
-        result[b] = torch.prod(torch.pow(torch.flatten(block[b]),1/4),0)
-
+    # result = torch.zeros((B,1))
+    # for b in range(B):
+    #     result[b] = torch.prod(torch.pow(torch.flatten(block[b]),1/4),0)
+    result = quick_gm(torch.reshape(block,(B,H*W,1)), H)
     return result
 
 def avg_resize(depthmap, n):
@@ -422,7 +422,7 @@ def decomp(dn, n, relative=False):
     result = []
     #print(message)
     while n > 0:
-        dn_1 = avg_resize(dn, 1)
+        dn_1 = geometric_resize(dn)
         if dn.is_cuda:
             dn_1 = dn_1.cuda()
         fn = torch.div(dn,upsample(dn_1))
@@ -559,7 +559,7 @@ def optimize_components(yhat, y, cuda):
     # optimizer.step()
     #print(loss)
 
-    return pred, torch.sum(torch.as_tensor(loss)) #torch.mean(torch.as_tensor(loss))
+    return pred, torch.mean(torch.as_tensor(loss)) #torch.mean(torch.as_tensor(loss))
 
 def make_pred(w, A, cuda, relative_only):
     weights = w
@@ -685,11 +685,13 @@ def get_labels_sid(args, depth):
     return labels.int()
 
 if __name__ == "__main__":
-    test = torch.abs(torch.randn((4,1,128,128)))
-    #print(test)
-    # r = alternating_least_squares(test,n=4, cuda=False, debug=True)
-    result = decomp(test, 7, relative=True)[::-1]
-    for r in result:
-        print(r.shape)
-    # print(r.shape)
-    #print(torch. __version__ )
+    test = torch.abs(torch.randn((4,1,8,8)))
+    B,C,H,W = test.size()
+    # kernel = 2
+    # stride = 2
+    # patches = test.unfold(3, kernel, stride).unfold(2, kernel, stride)
+    # print(patches)
+    result = geometric_resize(test)
+    print(result)
+
+

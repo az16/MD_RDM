@@ -123,7 +123,7 @@ class RelativeDephModule(pl.LightningModule):
         component_target = cp.decomp(self.normalize(target), 7)[::-1]
 
         if has_ordinal:
-            tmp = cp.avg_resize(target,4)
+            tmp = cp.alt_resize(target, n=4)
             # print("Sid nan: {0}".format(torch.isnan(u.depth2label_sid(tmp, cuda=is_cuda)).any()))
             # print("Sid < 0: {0}".format((u.depth2label_sid(tmp, cuda=is_cuda) < 0).any()))
             # print("Normalized Sid nan: {0}".format(self.normalize(u.depth2label_sid(tmp, cuda=is_cuda))))
