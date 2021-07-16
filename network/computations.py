@@ -1,7 +1,6 @@
 import torch
-from torch.functional import norm
 import torch.nn as nn
-import math, cmath
+import math
 
 
 def principal_eigen(p_3):
@@ -314,12 +313,15 @@ def resize(depth_map, newsize):
     return (new*mask)#+mask2) 
 
 def alt_resize(depthmap, n=1):
-    if n==1:
-        return geometric_resize(depthmap)
-    else:
-        return alt_resize(geometric_resize(depthmap), n-1)
 
-def geometric_resize(depthmap):
+    while n > 0:
+        dn_1 = geometric_resize(depthmap, 2, 2, 1/4)
+        depthmap = dn_1
+        n -= 1
+    
+    return depthmap
+
+def geometric_resize(t, kernel, stride, p):
     """
     Reduces size of the input depthmap by computing geometric mean for
     every 4 entries in the input tensor
@@ -327,43 +329,15 @@ def geometric_resize(depthmap):
     depthmap - depthmap of size 2**n x 2**n
     returns - depthmap of size 2**n-1 x 2**n-1
     """
-    B, C, H, W = depthmap.size()
-    depthmap = depthmap.view(B,H,W)
-    dn_1 = torch.zeros((B, int(H/2), int(W/2)))
-    ratio = int(H/2)
-    m = 2
-    for i in range(ratio):
-        for j in range(ratio):
-            c_s = m*j
-            c_e = c_s + 2
-            r_s = m*i
-            r_e = r_s+2
-            original = depthmap[:, r_s:r_e, c_s:c_e]
-            tmp = compress_entry(original)
-            tmp = tmp.view(B)
-            dn_1[:, i, j] = tmp
-    if depthmap.is_cuda:
+    B, C, H, W = t.size()
+    t = torch.pow(t, p) #prepare for geometric mean
+    t_uf = t.unfold(2, kernel, stride).unfold(3, kernel, stride) #make patches
+    #print(t_uf.shape)
+    t_uf = t_uf.reshape(B, C, int(H/kernel), int(W/kernel), kernel*kernel).permute(0, 1, 4, 2, 3).squeeze() #arrange correctly
+    dn_1 = torch.prod(t_uf, dim=1).view(B, C, int(H/kernel), int(W/kernel)) #compute second step of geo mean
+    if t.is_cuda:
         dn_1 = dn_1.cuda()
-    return dn_1.view(B, 1, ratio, ratio)
-
-def compress_entry(block):
-    """
-    Takes a block of 4 tensor entries and calculates the geometric mean
-    returns geometric mean for block of 4 (for resizing)
-    """
-    B,H,W = block.size()
-    # result = torch.zeros((B,1))
-    # for b in range(B):
-    #     result[b] = torch.prod(torch.pow(torch.flatten(block[b]),1/4),0)
-    result = quick_gm(torch.reshape(block,(B,H*W,1)), H)
-    return result
-
-def avg_resize(depthmap, n):
-    #print("d_n: {0}".format(torch.isnan(depthmap).any()))
-    result = depthmap
-    for i in range(n):
-        result = nn.AvgPool2d(kernel_size=2,stride=2)(result)
-    return result
+    return dn_1
 
 def upsample(depth_map):
     depth_map = depth_map.double()
@@ -423,7 +397,7 @@ def decomp(dn, n, relative=False):
     result = []
     #print(message)
     while n > 0:
-        dn_1 = geometric_resize(dn)
+        dn_1 = geometric_resize(dn, 2, 2, 1/4)
         if dn.is_cuda:
             dn_1 = dn_1.cuda()
         fn = torch.div(dn,upsample(dn_1))
@@ -685,14 +659,19 @@ def get_labels_sid(args, depth):
     #     labels = labels.cuda()
     return labels.int()
 
-if __name__ == "__main__":
-    test = torch.abs(torch.randn((4,1,8,8)))
-    B,C,H,W = test.size()
-    # kernel = 2
-    # stride = 2
-    # patches = test.unfold(3, kernel, stride).unfold(2, kernel, stride)
-    # print(patches)
-    result = geometric_resize(test)
-    print(result)
+def unfold_test(t, kernel, stride, p):
+    B, C, H, W = t.size()
+    t = torch.pow(t, p)
+    t_uf = t.unfold(2, kernel, stride).unfold(3, kernel, stride)
+    #print(t_uf.shape)
+    t_uf = t_uf.reshape(B, C, int(H/kernel), int(W/kernel), kernel*kernel).permute(0, 1, 4, 2, 3).squeeze()
+    r = torch.prod(t_uf, dim=1).view(B, C, int(H/kernel), int(W/kernel))
+    #print(r.shape)
+    #t = F.unfold(t,s,kernel,stride)
+    #print(t.shape)
+    return r
 
+if __name__ == "__main__":
+    test = torch.abs(torch.randn((4,1,128,128)))
+    print(alt_resize(test, n=3).shape)
 
