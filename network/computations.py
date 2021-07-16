@@ -342,7 +342,8 @@ def geometric_resize(depthmap):
             tmp = compress_entry(original)
             tmp = tmp.view(B)
             dn_1[:, i, j] = tmp
-
+    if depthmap.is_cuda:
+        dn_1 = dn_1.cuda()
     return dn_1.view(B, 1, ratio, ratio)
 
 def compress_entry(block):
