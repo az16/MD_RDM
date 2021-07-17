@@ -22,8 +22,14 @@ This is a pytorch implementation of 'Monocular Depth Estimation Using Relative D
 # Training and Data
 - [x] Training cycle
 - [x] Dataloaders + Augmentation
-- [ ] Training (in progress)
+- [x] Training (in progress)
 # Debugging and current Issues
 ## Current Issues
-- [ ] Loss does not decrease, possible causes might be: Lloyd-Quantization, number of decoders/training procedure
-- [ ] Training time, could be reduced by adopting training procedure form creators' paper
+--
+## Current Training Progress
+Configurations:
+- [x] Encoder + D3                                        (lr = 1-e4, b = 4, epochs = 15)              Result: d1 = 0.6 
+- [ ] Encoder (frozen weights) + D3 + D6                  (lr = 1-e4, b = 4, epochs = 15)
+- [ ] Encoder (frozen weights) + D3 + D6 + D7             (lr = 1-e4, b = 4, epochs = 15)
+- [ ] Encoder (frozen weights) + D3 + D6 + D7 + D8        (lr = 1-e4, b = 4, epochs = 15)
+- [ ] Encoder (frozen weights) + D3 + D6 + D7 + D8 + D9   (lr = 1-e4, b = 4, epochs = 15)
