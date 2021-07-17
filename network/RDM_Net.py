@@ -352,24 +352,13 @@ class Ordinal_Layer(nn.Module):
     def forward(self, x):
         #print(x)
         if self.dorn:
-            #print("Before DornRegression: {0}".format(x))
             depth, labels = self.DornOrdinalRegression(x)
-            #print("After DornRegression: {0}".format(x))
-            #B,C,H,W = depth.size()
-            #depth = torch.div(depth,cp.quick_gm(depth.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W))#depth/cp.geometric_mean(torch.squeeze(depth), 8, 8)
-            #depth = torch.unsqueeze(depth, dim=1)
-            #print(depth)
             return (depth, labels) 
         else:
             if self.id == 3:
                 #use regular comparison matrix
-                #print("D6 input: {0}".format(x))
                 x = self.sparse_comparison_v1(x)
-                #print("D6 comparison output: {0}".format(x))
                 x = cp.quadratic_als(x, cuda=x.is_cuda, n=3)
-                #print("D6 principal_eigenvector method output: {0}".format(x))
-                # print(x.shape)
-                # print("D6 done.")
                 return x 
 
             elif self.id == 4:

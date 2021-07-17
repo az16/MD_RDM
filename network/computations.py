@@ -530,14 +530,7 @@ def optimize_components(yhat, y, cuda):
     #debug_print_list(w)
     pred = yhat
     loss = squared_err(pred, y, cuda)
-    #print(loss)
-    #optimizer = torch.optim.SGD(params=w,lr=learning_rate)
-    #optimizer.zero_grad()
-    # loss = [x.backward() for x in loss]
-    # optimizer.step()
-    #print(loss)
-
-    return pred, torch.mean(torch.as_tensor(loss)) #torch.mean(torch.as_tensor(loss))
+    return pred, torch.sum(torch.as_tensor(loss)) #torch.mean(torch.as_tensor(loss))
 
 def make_pred(w, A, cuda, relative_only):
     weights = w
@@ -568,9 +561,9 @@ def squared_err(yhat,y, cuda):
         #print(yhat[i].is_cuda, y[i].is_cuda)
         #print("squared_err(Pred nan, Target nan) = ({0},{1})".format(torch.isnan(yhat[i]).any(), torch.isnan(y[i]).any()))
         if cuda:
-            sqr_err_list.append(torch.nn.MSELoss()(yhat[i],y[i]).cuda())
+            sqr_err_list.append(torch.nn.MSELoss()(torch.exp(yhat[i]),torch.exp(y[i])).cuda())
         else:
-            sqr_err_list.append(torch.nn.MSELoss()(yhat[i],y[i]))
+            sqr_err_list.append(torch.nn.MSELoss()(torch.exp(yhat[i]),torch.exp(y[i])))
         
 
     return sqr_err_list
