@@ -7,19 +7,19 @@ import network.computations as cp
 #import computations as cp
 
 use_cuda = True
-freeze_encoder = False
+freeze_encoder = True
 class BaseModel(nn.Module):
     def load(self, path):
         # Load model from file.
         # Args:
         #    path (str): file path
         
-        # parameters = torch.load(path)
+        parameters = torch.load(path)
 
-        # if "optimizer" in parameters:
-        #     parameters = parameters["model"]
+        if "optimizer" in parameters:
+            parameters = parameters["model"]
 
-        # self.load_state_dict(parameters)
+        self.load_state_dict(parameters)
         pass
         
         
@@ -55,13 +55,13 @@ class DepthEstimationNet(BaseModel):
         # self.d_5 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=True, id=5, quant=self.quantizers)
         
         #Remaining 5 estimate relative depth maps using ALS
-        #self.d_6 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=6, quant=self.quantizers)
+        self.d_6 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=6, quant=self.quantizers)
         #self.d_7 = Decoder(in_channels=1056, num_wsm_layers=1, DORN=False, id=7, quant=self.quantizers)
         #self.d_8 = Decoder(in_channels=1056, num_wsm_layers=2, DORN=False, id=8, quant=self.quantizers)
         #self.d_9 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=False, id=9, quant=self.quantizers)
         # self.d_10 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=False, id=10, quant=self.quantizers)
 
-        self.weight_layer = Weights(vector_sizes=[1,1,1,1,0,0,0,0], use_cuda=use_cuda, relative_only=False)
+        self.weight_layer = Weights(vector_sizes=[1,2,2,2,0,0,0,0], use_cuda=use_cuda, relative_only=False)
 
     def freeze_encoder(self):
         for parameter in self.encoder.parameters():
@@ -106,7 +106,7 @@ class DepthEstimationNet(BaseModel):
         #B,C,H,W = x_d1.size()
         #print("NaN after decoder: {0}".format(torch.isnan(torch.div(x_d1,cp.quick_gm(x_d1.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W))).any()))
         #print(x_d1)
-        #x_d6 = self.d_6(x)#relative
+        x_d6 = self.d_6(x)#relative
         #x_d7 = self.d_7(x)#relative
         #x_d8 = self.d_8(x)#relative
         #x_d9 = self.d_9(x)#relative
@@ -119,7 +119,7 @@ class DepthEstimationNet(BaseModel):
         #print("d6 output < 0: {0}".format((x_d6 < 0).any()))
         f_d1 = cp.decomp(torch.div(x_d1,cp.quick_gm(x_d1.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)), 3)[::-1]
         #print("NaN after decomp: {0}".format(torch.isnan(f_d1[0]).any()))
-        #f_d6 = cp.decomp(x_d6, 3, relative_map=True)[::-1]
+        f_d6 = cp.decomp(x_d6, 3, relative_map=True)[::-1]
         #check = [(x<0).any() for x in f_d6]
         #print("f_d6 < 0: {0}".format(True in check))
         #f_d7 = cp.decomp(x_d7, 4, relative_map=True)[::-1]
@@ -128,7 +128,7 @@ class DepthEstimationNet(BaseModel):
         #print(f_d1, f_d6, f_d7, f_d8, f_d9)
         #bring into matrix form
         #y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9], use_cuda)
-        y_hat = cp.relative_fine_detail_matrix([f_d1], use_cuda)
+        y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6], use_cuda)
         #print("NaN after logspace switch: {0}".format(torch.isnan(y_hat[0]).any()))
         #self.weight_layer.print_grads()
         #self.weight_layer.print_grads()
