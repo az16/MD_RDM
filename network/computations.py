@@ -396,7 +396,7 @@ def decompose_depth_map(container, dn, n, relative_map=False):
         container.append(fn)
         return decompose_depth_map(container, dn_1, n-1, relative_map)
 
-def decomp(dn, n, relative=False):
+def decomp(dn, n, relative_map=False):
     result = []
     while n > 0:
         #print(dn.shape)
@@ -408,7 +408,7 @@ def decomp(dn, n, relative=False):
         dn = dn_1
         n -= 1
 
-    if not relative:
+    if not relative_map:
         result.append(dn)
 
     return result
