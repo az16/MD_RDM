@@ -532,10 +532,8 @@ def optimize_components(yhat, y, cuda):
     loss = squared_err(pred, y, cuda)
     return pred, torch.sum(torch.as_tensor(loss)) #torch.mean(torch.as_tensor(loss))
 
-def make_pred(w, A, cuda, relative_only):
+def make_pred(w, A, cuda):
     weights = w
-    if relative_only:
-        weights = w[1::]
     for i in range(len(A)):
         B, M = A[i].shape[0], A[i].shape[2]
         # print("Candidate {0}:\r".format(i))
