@@ -6,19 +6,20 @@ import scipy.io
 import network.computations as cp
 #import computations as cp
 
-use_cuda = False
+use_cuda = True
 class BaseModel(nn.Module):
     def load(self, path):
         # Load model from file.
         # Args:
         #    path (str): file path
         
-        parameters = torch.load(path)
+        # parameters = torch.load(path)
 
-        if "optimizer" in parameters:
-            parameters = parameters["model"]
+        # if "optimizer" in parameters:
+        #     parameters = parameters["model"]
 
-        self.load_state_dict(parameters)
+        # self.load_state_dict(parameters)
+        pass
         
         
 class DepthEstimationNet(BaseModel):
@@ -39,8 +40,7 @@ class DepthEstimationNet(BaseModel):
         #GPU
         #Quantizers for Lloyd quantization
         self.quantizers = Quantization()
-        self.config = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-        self.freeze_encoder = 0
+        self.config = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0] #init config
         #Encoder part
         self.encoder = _make_encoder_()
 
@@ -84,7 +84,7 @@ class DepthEstimationNet(BaseModel):
         x = self.encoder.trans_e4(x)
         #according to the authors, optimal performance is reached with decoders
         #1,6,7,8,9
-        
+        #print((x==0).any())
         if use_cuda:
             x.cuda()
         x_d1, ord_labels = self.d_1(x)#regular
@@ -104,12 +104,13 @@ class DepthEstimationNet(BaseModel):
         if self.config[8] == 1:
             x_d9 = self.d_9(x)#relative
        
+        #print(x_d6)
         f_d1 = cp.decomp(torch.div(x_d1,cp.quick_gm(x_d1.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)), 3)[::-1]
         f_d6 = cp.decomp(x_d6, 3, relative_map=True)[::-1]
         f_d7 = cp.decomp(x_d7, 4, relative_map=True)[::-1]
         f_d8 = cp.decomp(x_d8, 5, relative_map=True)[::-1]
         f_d9 = cp.decomp(x_d9, 6, relative_map=True)[::-1]
-
+        #print(f_d6)
         #bring into matrix form
         y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9], use_cuda)
         y_hat = self.weight_layer(y_hat)
@@ -242,6 +243,8 @@ class Ordinal_Layer(nn.Module):
         B,C,H,W = dn.size()
         H_1,W_1 = int(H/2),int(W/2)
         dn = dn.view(B,H,W)
+        #print((dn_1==0).any())
+        dn_1 = dn_1 + (dn_1 == 0)*1e-4
         test = []
         #sparse_m = torch.zeros(B,H*W,H_1*W_1)
         #for b in range(B):
@@ -254,6 +257,7 @@ class Ordinal_Layer(nn.Module):
                     index_col_start = int(min(max(index_resized_col, 0), dn_1.shape[3]-3))
                     index_col_end = index_col_start+3
                     comparison_area = cp.get_resized_area(index_row_start, index_row_end, index_col_start, index_col_end, dn_1) 
+                    #print(comparison_area)
                     #print((dn[:, index_row, index_col].view(B,1,1)*torch.pow(comparison_area,-1))[0][0])
                     #return
                     test.append(dn[:, index_row, index_col].view(B,1,1)*torch.pow(comparison_area,-1))
@@ -415,7 +419,6 @@ class Weights(nn.Module):
     def __init__(self, vector_sizes, use_cuda):
         super(Weights, self).__init__()
         self.use_cuda = use_cuda
-        self.config = [] #starting config
         if self.use_cuda:
             self.d0 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[0],1)), dim=0).cuda())
             self.f1 = nn.Parameter(nn.functional.softmax(torch.ones((vector_sizes[1],1)), dim=0).cuda())
@@ -439,9 +442,6 @@ class Weights(nn.Module):
         for weight_vector in self.weight_list:
             if weight_vector.shape[0] == 0:
                 weight_vector.requires_grad = False
-
-    def update_config(self, weight_index, lr, gradient):
-        self.weight_list[weight_index] = self.weight_list[weight_index] - lr * gradient
     
     def get(self, index):
         return self.weight_list[index]

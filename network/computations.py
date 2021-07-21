@@ -410,7 +410,7 @@ def decomp(dn, n, relative_map=False):
 
     if not relative_map:
         result.append(dn)
-
+    #print(result)
     return result
 
 def recombination(list_of_components, n=7):
@@ -511,6 +511,7 @@ def make_matrix(list_of_candidates, cuda):
     # print("== 0, < 0, Nan = ({0},{1}, {2})".format(True in c_1, True in c_2, True in t_c))
     result = torch.cat(candidates, dim=1)
     #print(result.is_cuda)
+    #print(result)
     return result
 
 def optimize_components_old(weights, yhat, y, lr=0.001):

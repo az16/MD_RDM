@@ -12,13 +12,13 @@ import utils as u
 import loss as l
 from dataloaders.nyu_dataloader import NYUDataset
 
-is_cuda=False
+is_cuda=True
 class RelativeDephModule(pl.LightningModule):
-    def __init__(self, path, batch_size, learning_rate, worker, metrics, *args, **kwargs):
+    def __init__(self, path, batch_size, learning_rate, worker, metrics, limits, *args, **kwargs):
         super().__init__()
         self.save_hyperparameters()
         self.metric_logger = MetricLogger(metrics=metrics, module=self)
-        self.train_loader = torch.utils.data.DataLoader(NYUDataset(path, dataset_type='labeled', split="train", output_size=(226, 226)),
+        self.train_loader = torch.utils.data.DataLoader(NYUDataset(path, dataset_type='sparse_2_dense', split="train", output_size=(226, 226)),
                                                     batch_size=batch_size, 
                                                     shuffle=True, 
                                                     num_workers=worker, 
@@ -29,6 +29,7 @@ class RelativeDephModule(pl.LightningModule):
                                                     num_workers=1, 
                                                     pin_memory=True) 
         self.criterion = torch.nn.MSELoss()
+        self.limits = limits
         print("Use cuda: {0}".format(is_cuda))
         if is_cuda:
             self.model = DepthEstimationNet().cuda()
@@ -151,12 +152,12 @@ class RelativeDephModule(pl.LightningModule):
         #return torch.div(batch,cp.quick_gm(batch.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)) 
     
     def switch_config(self, epoch):
-        if epoch == 13:
+        if epoch == self.limits[0]:
             self.model.freeze_encoder()
             self.model.update_config([1,0,0,0,0,1,0,0,0,0])
-        elif epoch == 25:
+        elif epoch == self.limits[1]:
             self.model.update_config([1,0,0,0,0,1,1,0,0,0])
-        elif epoch == 37:
+        elif epoch == self.limits[2]:
             self.model.update_config([1,0,0,0,0,1,1,1,0,0])
-        elif epoch == 49:
+        elif epoch == self.limits[3]:
             self.model.update_config([1,0,0,0,0,1,1,1,1,0])
