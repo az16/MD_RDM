@@ -65,7 +65,7 @@ class RelativeDephModule(pl.LightningModule):
         return self.val_loader                                            
 
     def training_step(self, batch, batch_idx):
-        self.switch_config(self.current_epoch)
+        #self.switch_config(self.current_epoch)
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
         

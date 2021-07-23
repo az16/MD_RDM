@@ -40,7 +40,7 @@ class DepthEstimationNet(BaseModel):
         #GPU
         #Quantizers for Lloyd quantization
         self.quantizers = Quantization()
-        self.config = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0] #init config
+        self.config = [1, 0, 0, 0, 0, 1, 1, 1, 1, 0] #init config
         #Encoder part
         self.encoder = _make_encoder_()
 
