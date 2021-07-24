@@ -33,6 +33,7 @@ class RelativeDephModule(pl.LightningModule):
                                                     pin_memory=True) 
         self.criterion = torch.nn.MSELoss()
         self.limits = limits
+        self.skip = len(self.val_loader) // 9
         #is_cuda = not gpus == 0
         #RDM_Net.use_cuda = is_cuda
         print("Use cuda: {0}".format(is_cuda))
