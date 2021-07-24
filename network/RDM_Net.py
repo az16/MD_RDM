@@ -23,7 +23,7 @@ class BaseModel(nn.Module):
         
         
 class DepthEstimationNet(BaseModel):
-    def __init__(self, config, gpu=0):
+    def __init__(self, config):
         super(DepthEstimationNet, self).__init__()
 
         """
@@ -43,7 +43,6 @@ class DepthEstimationNet(BaseModel):
         self.config = config #init config
         #Encoder part
         self.encoder = _make_encoder_()
-        use_cuda = not gpu == 0
         #Decoders 1-10
         #First 5 estimate regular depth maps using ordinal loss and SID algorithm
         self.d_1 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=1, quant=self.quantizers)

@@ -36,9 +36,9 @@ class RelativeDephModule(pl.LightningModule):
         RDM_Net.use_cuda = is_cuda
         print("Use cuda: {0}".format(is_cuda))
         if is_cuda:
-            self.model = DepthEstimationNet(config, gpus).cuda()
+            self.model = DepthEstimationNet(config).cuda()
         else:
-            self.model = DepthEstimationNet(config, gpus)
+            self.model = DepthEstimationNet(config)
 
         
 
