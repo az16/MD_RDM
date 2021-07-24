@@ -31,7 +31,7 @@ class RelativeDephModule(pl.LightningModule):
                                                     pin_memory=True) 
         self.criterion = torch.nn.MSELoss()
         self.limits = limits
-        is_cuda = gpus > 0
+        is_cuda = not gpus == 0
         print("Use cuda: {0}".format(is_cuda))
         if is_cuda:
             self.model = DepthEstimationNet(config, gpus).cuda()
