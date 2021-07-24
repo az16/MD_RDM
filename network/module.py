@@ -7,6 +7,7 @@ import pytorch_lightning as pl
 import numpy as np
 from torch import cuda
 from metrics import MetricLogger
+from network import RDM_Net
 from network.RDM_Net import DepthEstimationNet
 from network import computations as cp
 import utils as u
@@ -32,6 +33,7 @@ class RelativeDephModule(pl.LightningModule):
         self.criterion = torch.nn.MSELoss()
         self.limits = limits
         is_cuda = not gpus == 0
+        RDM_Net.use_cuda = is_cuda
         print("Use cuda: {0}".format(is_cuda))
         if is_cuda:
             self.model = DepthEstimationNet(config, gpus).cuda()

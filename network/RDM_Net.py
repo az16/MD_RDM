@@ -538,15 +538,6 @@ def _wsm_output_planes(decoder_id):
     else:
         return 1
 
-def debug(container, id):
-    print("Found {0} fine detail maps in decoder {1} output.".format(len(container), id))
-    print("Shapes:")
-    for t in container:
-        print(t.shape)
-    print("Nans -> {0}".format(cp.find_nans(container)))
-    print("\n")
-
-
 if __name__ == "__main__":
     inp = torch.randn((4, 3, 226, 226))
 
