@@ -14,7 +14,8 @@ import utils as u
 import loss as l
 from dataloaders.nyu_dataloader import NYUDataset
 
-is_cuda=False
+is_cuda=True
+RDM_Net.use_cuda=True
 class RelativeDephModule(pl.LightningModule):
     def __init__(self, path, dataset_type, batch_size, learning_rate, worker, metrics, limits, config, gpus, *args, **kwargs):
         super().__init__()
@@ -32,8 +33,8 @@ class RelativeDephModule(pl.LightningModule):
                                                     pin_memory=True) 
         self.criterion = torch.nn.MSELoss()
         self.limits = limits
-        is_cuda = not gpus == 0
-        RDM_Net.use_cuda = is_cuda
+        #is_cuda = not gpus == 0
+        #RDM_Net.use_cuda = is_cuda
         print("Use cuda: {0}".format(is_cuda))
         if is_cuda:
             self.model = DepthEstimationNet(config).cuda()
