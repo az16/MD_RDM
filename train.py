@@ -18,11 +18,13 @@ if __name__ == "__main__":
     parser.add_argument('--worker', default=6, type=int, help='Number of workers for data loader')
     parser.add_argument('--find_learning_rate', action='store_true', help="Finding learning rate.")
     parser.add_argument('--detect_anomaly', action='store_true', help='Enables pytorch anomaly detection')
-    parser.add_argument('--switch_limits', default=[13, 25, 37, 49], help='Specifies when to add decoders')
+    parser.add_argument('--switch_limits', default=[10, 20, 30, 40], help='Specifies when to add decoders')
+    parser.add_argument('--config', default=[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, ], help='Specifies which decoders are used at the start.')
     
     parser.add_argument('--learning_rate', type=float, default=1e-4, help='Learning rate')
     parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
     parser.add_argument('--nyu_path', type=str, help="Path to NYU data set.")
+    parser.add_argument('--dataset_type', type=str, default='labeled', help="Which of the nyu sets should be used." )
 
     args = parser.parse_args()
 
@@ -70,7 +72,8 @@ if __name__ == "__main__":
             'gpu_capability': torch.cuda.get_device_capability(0) if use_gpu else None
             })
 
-    module = RelativeDephModule(path=args.nyu_path, batch_size=args.batch_size, learning_rate=args.learning_rate, worker=args.worker, metrics=args.metrics, limits=args.switch_limits)
+    module = RelativeDephModule(path=args.nyu_path, dataset_type=args.dataset_type, batch_size=args.batch_size, learning_rate=args.learning_rate, worker=args.worker, metrics=args.metrics, limits=args.switch_limits, config=args.config,
+                gpus = args.gpus)
 
     if args.find_learning_rate:
         # Run learning rate finder

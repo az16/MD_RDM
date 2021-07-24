@@ -531,7 +531,7 @@ def optimize_components(yhat, y, cuda):
     #debug_print_list(w)
     pred = yhat
     loss = squared_err(pred, y, cuda)
-    return pred, torch.sum(torch.as_tensor(loss)) #torch.mean(torch.as_tensor(loss))
+    return pred, torch.mean(torch.as_tensor(loss))
 
 def make_pred(w, A, cuda):
     weights = w

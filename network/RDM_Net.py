@@ -6,7 +6,7 @@ import scipy.io
 import network.computations as cp
 #import computations as cp
 
-use_cuda = True
+use_cuda = False
 class BaseModel(nn.Module):
     def load(self, path):
         # Load model from file.
@@ -23,7 +23,7 @@ class BaseModel(nn.Module):
         
         
 class DepthEstimationNet(BaseModel):
-    def __init__(self):
+    def __init__(self, config, gpu=0):
         super(DepthEstimationNet, self).__init__()
 
         """
@@ -40,10 +40,10 @@ class DepthEstimationNet(BaseModel):
         #GPU
         #Quantizers for Lloyd quantization
         self.quantizers = Quantization()
-        self.config = [1, 0, 0, 0, 0, 1, 1, 0, 0, 0] #init config
+        self.config = config #init config
         #Encoder part
         self.encoder = _make_encoder_()
-
+        use_cuda = gpu > 0
         #Decoders 1-10
         #First 5 estimate regular depth maps using ordinal loss and SID algorithm
         self.d_1 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=1, quant=self.quantizers)
@@ -71,6 +71,7 @@ class DepthEstimationNet(BaseModel):
 
     def forward(self, x):
         #encoder propagation
+
         x = self.encoder.conv_e1(x)
         x = self.encoder.max_e1(x)
         x = self.encoder.dense_e2(x)

@@ -1,4 +1,5 @@
 from unicodedata import normalize
+from numpy.lib import utils
 import torch
 from torchvision import transforms
 import torchvision.transforms.functional as TF
@@ -12,13 +13,13 @@ import utils as u
 import loss as l
 from dataloaders.nyu_dataloader import NYUDataset
 
-is_cuda=True
+is_cuda=False
 class RelativeDephModule(pl.LightningModule):
-    def __init__(self, path, batch_size, learning_rate, worker, metrics, limits, *args, **kwargs):
+    def __init__(self, path, dataset_type, batch_size, learning_rate, worker, metrics, limits, config, gpus, *args, **kwargs):
         super().__init__()
         self.save_hyperparameters()
         self.metric_logger = MetricLogger(metrics=metrics, module=self)
-        self.train_loader = torch.utils.data.DataLoader(NYUDataset(path, dataset_type='sparse_2_dense', split="train", output_size=(226, 226)),
+        self.train_loader = torch.utils.data.DataLoader(NYUDataset(path, dataset_type=dataset_type, split="train", output_size=(226, 226)),
                                                     batch_size=batch_size, 
                                                     shuffle=True, 
                                                     num_workers=worker, 
@@ -26,15 +27,16 @@ class RelativeDephModule(pl.LightningModule):
         self.val_loader = torch.utils.data.DataLoader(NYUDataset(path, dataset_type='labeled', split="val", output_size=(226, 226)),
                                                     batch_size=1, 
                                                     shuffle=False, 
-                                                    num_workers=1, 
+                                                    num_workers=worker, 
                                                     pin_memory=True) 
         self.criterion = torch.nn.MSELoss()
         self.limits = limits
+        is_cuda = gpus > 0
         print("Use cuda: {0}".format(is_cuda))
         if is_cuda:
-            self.model = DepthEstimationNet().cuda()
+            self.model = DepthEstimationNet(config, gpus).cuda()
         else:
-            self.model = DepthEstimationNet()
+            self.model = DepthEstimationNet(config, gpus)
 
         
 
@@ -65,7 +67,6 @@ class RelativeDephModule(pl.LightningModule):
         return self.val_loader                                            
 
     def training_step(self, batch, batch_idx):
-        #self.switch_config(self.current_epoch)
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
         
@@ -98,13 +99,15 @@ class RelativeDephModule(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
-
+        y_origin = y
         y = cp.resize(y,128)
 
         if is_cuda:
             y = y.cuda() 
             #x = x.cuda()
         
+        norm = self.normalize(y)
+
         #mask target
         gt = y
         mask1 = y > 0
@@ -113,7 +116,9 @@ class RelativeDephModule(pl.LightningModule):
         fine_details, _, _ = self(x)
         y_hat, _ = self.compute_final_depth(fine_details, y)
         y_hat = torch.exp(y_hat)
-        return self.metric_logger.log_val(y_hat, self.normalize(y))
+        self.save_visual(x, y_origin, u.adjust_padding(y_hat), batch_idx)
+        self.switch_config(self.current_epoch)
+        return self.metric_logger.log_val(y_hat, norm)
     
     def compute_final_depth(self, fine_detail_list, target):
         #decompose target map
@@ -161,3 +166,13 @@ class RelativeDephModule(pl.LightningModule):
             self.model.update_config([1,0,0,0,0,1,1,1,0,0])
         elif epoch == self.limits[3]:
             self.model.update_config([1,0,0,0,0,1,1,1,1,0])
+
+    def save_visual(self, x, y, y_hat, batch_idx):
+        if batch_idx == 0:
+            self.img_merge = u.merge_into_row(x, y, y_hat)
+        elif (batch_idx < 8 * self.skip) and (batch_idx % self.skip == 0):
+            row = u.merge_into_row(x, y, y_hat)
+            self.img_merge = u.add_row(self.img_merge, row)
+        elif batch_idx == 8 * self.skip:
+            filename = "{}/{}/version_{}/epoch{}.jpg".format(self.logger.save_dir, self.logger.name, self.logger.version, self.current_epoch)
+            u.save_image(self.img_merge, filename)
