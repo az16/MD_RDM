@@ -7,15 +7,15 @@ import pytorch_lightning as pl
 import numpy as np
 from torch import cuda
 from metrics import MetricLogger
-from network import RDM_Net
+from network import RDM_Net, computations
 from network.RDM_Net import DepthEstimationNet
 from network import computations as cp
 import utils as u
 import loss as l
 from dataloaders.nyu_dataloader import NYUDataset
 
-is_cuda=True
-RDM_Net.use_cuda=True
+is_cuda=False
+RDM_Net.use_cuda=False
 class RelativeDephModule(pl.LightningModule):
     def __init__(self, path, dataset_type, batch_size, learning_rate, worker, metrics, limits, config, gpus, *args, **kwargs):
         super().__init__()
@@ -120,7 +120,7 @@ class RelativeDephModule(pl.LightningModule):
         fine_details, _, _ = self(x)
         y_hat, _ = self.compute_final_depth(fine_details, y)
         y_hat = torch.exp(y_hat)
-        self.save_visual(x, y_origin, u.adjust_padding(y_hat), batch_idx)
+        self.save_visual(x, y_origin, torch.nn.functional.interpolate(y_hat, 226), batch_idx)
         self.switch_config(self.current_epoch)
         return self.metric_logger.log_val(y_hat, norm)
     
@@ -165,11 +165,11 @@ class RelativeDephModule(pl.LightningModule):
             self.model.freeze_encoder()
             self.model.update_config([1,0,0,0,0,1,0,0,0,0])
         elif epoch == self.limits[1]:
-            self.model.update_config([1,0,0,0,0,1,1,0,0,0])
+            self.model.update_config([1,0,0,0,0,0,1,0,0,0])
         elif epoch == self.limits[2]:
-            self.model.update_config([1,0,0,0,0,1,1,1,0,0])
+            self.model.update_config([1,0,0,0,0,0,0,1,0,0])
         elif epoch == self.limits[3]:
-            self.model.update_config([1,0,0,0,0,1,1,1,1,0])
+            self.model.update_config([1,0,0,0,0,0,0,0,1,0])
 
     def save_visual(self, x, y, y_hat, batch_idx):
         if batch_idx == 0:

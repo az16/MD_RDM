@@ -4,6 +4,7 @@ import torch
 import pytorch_lightning as pl
 from argparse import ArgumentParser
 from network.module import RelativeDephModule
+from network import RDM_Net, module
 
 if __name__ == "__main__":
     parser = ArgumentParser('Trains mono depth estimation models')
@@ -18,7 +19,7 @@ if __name__ == "__main__":
     parser.add_argument('--worker', default=6, type=int, help='Number of workers for data loader')
     parser.add_argument('--find_learning_rate', action='store_true', help="Finding learning rate.")
     parser.add_argument('--detect_anomaly', action='store_true', help='Enables pytorch anomaly detection')
-    parser.add_argument('--switch_limits', default=[10, 20, 30, 40], help='Specifies when to add decoders')
+    parser.add_argument('--switch_limits', default=[30, 31, 32, 34], help='Specifies when to add decoders')
     parser.add_argument('--config', default=[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, ], help='Specifies which decoders are used at the start.')
     
     parser.add_argument('--learning_rate', type=float, default=1e-4, help='Learning rate')
@@ -50,6 +51,8 @@ if __name__ == "__main__":
     )
 
     use_gpu = not args.gpus == 0
+    module.is_cuda= use_gpu
+    RDM_Net.use_cuda= use_gpu
 
     trainer = pl.Trainer(
         log_gpu_memory=False,
