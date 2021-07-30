@@ -1,3 +1,4 @@
+from typing_extensions import final
 from unicodedata import normalize
 from numpy.lib import utils
 import torch
@@ -48,7 +49,7 @@ class RelativeDephModule(pl.LightningModule):
         train_param = self.model.parameters()
         # Training parameters
         optimizer = torch.optim.AdamW(train_param, lr=self.hparams.learning_rate)
-        lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=2)
+        lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=5)
         scheduler = {
             'scheduler': lr_scheduler,
             'monitor': 'val_delta1'
@@ -73,8 +74,9 @@ class RelativeDephModule(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
+        print(y.dtype)
         
-        y = cp.resize(y,128)
+        #y = cp.resize(y,128)
 
         if is_cuda:
             y = y.cuda() 
@@ -87,9 +89,10 @@ class RelativeDephModule(pl.LightningModule):
         y = (gt * mask1) + mask2
 
         fine_details, ord_depth_pred, ord_label_pred = self(x)
-        ord_y = self.compute_ordinal_target(ord_depth_pred, y)
+        ord_y = self.compute_ordinal_target(ord_depth_pred, cp.resize(y,128))
         ord_loss = l.Ordinal_Loss().calc(ord_label_pred, ord_y, cuda=is_cuda)        
-        final_depth, fine_detail_loss = self.compute_final_depth(fine_details, y)
+        final_depth, fine_detail_loss = self.compute_final_depth(fine_details, cp.resize(y,128))
+        final_depth = cp.resize(final_depth, 226).float()
         final_depth = torch.exp(final_depth)
         mse = self.criterion(final_depth, y)
         loss_all = mse + ord_loss + fine_detail_loss
@@ -98,13 +101,13 @@ class RelativeDephModule(pl.LightningModule):
         self.log("MSE", mse, prog_bar=True)
         self.log("Ord_Loss", ord_loss, prog_bar=True)
         self.log("Fine_Detail", fine_detail_loss, prog_bar=True)             
-        return self.metric_logger.log_train(final_depth, self.normalize(y), loss_all)
+        return self.metric_logger.log_train(final_depth, y, loss_all)
 
     def validation_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
         y_origin = y
-        y = cp.resize(y,128)
+        #y = cp.resize(y,128)
 
         if is_cuda:
             y = y.cuda() 
@@ -118,9 +121,9 @@ class RelativeDephModule(pl.LightningModule):
         mask2 = (y <= 0) + 1e-4
         y = (gt * mask1) + mask2
         fine_details, _, _ = self(x)
-        y_hat, _ = self.compute_final_depth(fine_details, y)
-        y_hat = torch.exp(y_hat)
-        self.save_visual(x, y_origin, torch.nn.functional.interpolate(y_hat, 226), batch_idx)
+        y_hat, _ = self.compute_final_depth(fine_details, cp.resize(y,128))
+        y_hat = torch.exp(cp.resize(y_hat,226))
+        self.save_visual(x, y_origin, y_hat, batch_idx)
         self.switch_config(self.current_epoch)
         return self.metric_logger.log_val(y_hat, norm)
     
