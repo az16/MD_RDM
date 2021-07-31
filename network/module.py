@@ -77,13 +77,14 @@ class RelativeDephModule(pl.LightningModule):
 
         if is_cuda:
             y = y.cuda() 
-
+        
+        y = self.mask(y)
         fine_details, ord_depth_pred, ord_label_pred = self(x)
 
         ord_y = self.compute_ordinal_target(ord_depth_pred, cp.resize(y,128))
         ord_loss = l.Ordinal_Loss().calc(ord_label_pred, ord_y, cuda=is_cuda)   
 
-        final_depth, fine_detail_loss = self.compute_final_depth(fine_details, cp.resize(self.mask(y),128))
+        final_depth, fine_detail_loss = self.compute_final_depth(fine_details, cp.resize(y,128))
         final_depth = cp.resize(final_depth, 226).float()
         final_depth = torch.exp(final_depth)
 
@@ -102,18 +103,19 @@ class RelativeDephModule(pl.LightningModule):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
         y_origin = y
-        #y = cp.resize(y,128)
+        y = cp.resize(y,128)
 
         if is_cuda:
             y = y.cuda() 
             #x = x.cuda()
         
-        norm = self.normalize(y)
+        y = self.mask(y)
+        norm = self.normalize(y_origin)
 
         fine_details, _, _ = self(x)
-        y_hat, _ = self.compute_final_depth(fine_details, cp.resize(self.mask(y),128))
+        y_hat, _ = self.compute_final_depth(fine_details, y)
         y_hat = torch.exp(cp.resize(y_hat,226))
-        self.save_visual(x, y_origin, y_hat, batch_idx)
+        self.save_visual(x, norm, y_hat, batch_idx)
         self.switch_config(self.current_epoch)
         return self.metric_logger.log_val(y_hat, norm)
     
