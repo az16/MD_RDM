@@ -74,34 +74,29 @@ class RelativeDephModule(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
-        print(y.dtype)
-        
-        #y = cp.resize(y,128)
 
         if is_cuda:
             y = y.cuda() 
-            #x = x.cuda()
-
-        #mask target
-        gt = y
-        mask1 = y > 0
-        mask2 = (y <= 0) + 1e-4
-        y = (gt * mask1) + mask2
 
         fine_details, ord_depth_pred, ord_label_pred = self(x)
+
         ord_y = self.compute_ordinal_target(ord_depth_pred, cp.resize(y,128))
-        ord_loss = l.Ordinal_Loss().calc(ord_label_pred, ord_y, cuda=is_cuda)        
-        final_depth, fine_detail_loss = self.compute_final_depth(fine_details, cp.resize(y,128))
+        ord_loss = l.Ordinal_Loss().calc(ord_label_pred, ord_y, cuda=is_cuda)   
+
+        final_depth, fine_detail_loss = self.compute_final_depth(fine_details, cp.resize(self.mask(y),128))
         final_depth = cp.resize(final_depth, 226).float()
         final_depth = torch.exp(final_depth)
-        mse = self.criterion(final_depth, y)
+
+        mse = self.criterion(final_depth, self.normalize(y))
+
         loss_all = mse + ord_loss + fine_detail_loss
  
        
         self.log("MSE", mse, prog_bar=True)
         self.log("Ord_Loss", ord_loss, prog_bar=True)
-        self.log("Fine_Detail", fine_detail_loss, prog_bar=True)             
-        return self.metric_logger.log_train(final_depth, y, loss_all)
+        self.log("Fine_Detail", fine_detail_loss, prog_bar=True)  
+
+        return self.metric_logger.log_train(final_depth, self.normalize(y), loss_all)
 
     def validation_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
@@ -115,13 +110,8 @@ class RelativeDephModule(pl.LightningModule):
         
         norm = self.normalize(y)
 
-        #mask target
-        gt = y
-        mask1 = y > 0
-        mask2 = (y <= 0) + 1e-4
-        y = (gt * mask1) + mask2
         fine_details, _, _ = self(x)
-        y_hat, _ = self.compute_final_depth(fine_details, cp.resize(y,128))
+        y_hat, _ = self.compute_final_depth(fine_details, cp.resize(self.mask(y),128))
         y_hat = torch.exp(cp.resize(y_hat,226))
         self.save_visual(x, y_origin, y_hat, batch_idx)
         self.switch_config(self.current_epoch)
@@ -133,10 +123,6 @@ class RelativeDephModule(pl.LightningModule):
 
         component_target = cp.decomp(self.normalize(target), 7)[::-1]
         tmp = cp.alt_resize(target, n=4)
-        # print("Sid nan: {0}".format(torch.isnan(u.depth2label_sid(tmp, cuda=is_cuda)).any()))
-        # print("Sid < 0: {0}".format((u.depth2label_sid(tmp, cuda=is_cuda) < 0).any()))
-        # print("Normalized Sid nan: {0}".format(self.normalize(u.depth2label_sid(tmp, cuda=is_cuda))))
-        #tmp = tmp * (tmp > 0)
         ord_components = cp.decomp(self.normalize(u.depth2label_sid(tmp, cuda=is_cuda)), 3)[::-1]
         component_target[0] = ord_components[0]
         component_target = [torch.log(x) for x in component_target]
@@ -151,7 +137,6 @@ class RelativeDephModule(pl.LightningModule):
         target = cp.resize(target, ord_pred.shape[2])
         if is_cuda:
             target = target.cuda()
-        #print(target.shape)
         #transform with ordinal regression so it can be compared
         ord_target = u.depth2label_sid(target, cuda=is_cuda)
         return ord_target
@@ -161,7 +146,6 @@ class RelativeDephModule(pl.LightningModule):
         if is_cuda:
             return torch.div(batch,cp.quick_gm(batch.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)).cuda()
         return torch.div(batch,cp.quick_gm(batch.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W))
-        #return torch.div(batch,cp.quick_gm(batch.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)) 
     
     def switch_config(self, epoch):
         if epoch == self.limits[0]:
@@ -173,6 +157,13 @@ class RelativeDephModule(pl.LightningModule):
             self.model.update_config([1,0,0,0,0,0,0,1,0,0])
         elif epoch == self.limits[3]:
             self.model.update_config([1,0,0,0,0,0,0,0,1,0])
+
+    def mask(self, y):
+        gt = y
+        mask1 = y > 0
+        mask2 = (y <= 0) + 1e-4
+        y = (gt * mask1) + mask2
+        return y
 
     def save_visual(self, x, y, y_hat, batch_idx):
         if batch_idx == 0:
