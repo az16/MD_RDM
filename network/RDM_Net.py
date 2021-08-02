@@ -59,9 +59,14 @@ class DepthEstimationNet(BaseModel):
         # self.d_10 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=False, id=10, quant=self.quantizers)
 
         self.weight_layer = Weights(vector_sizes=[1,5,5,5,3,2,1,0], use_cuda=use_cuda)
+        self.decoders = [self.d_1, self.d_6, self.d_7, self.d_8, self.d_9]
 
     def freeze_encoder(self):
         for parameter in self.encoder.parameters():
+            parameter.requires_grad = False
+    
+    def freeze_decoder(self, id):
+        for parameter in self.decoders[id].parameters():
             parameter.requires_grad = False
     
     def update_config(self, config):

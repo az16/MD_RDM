@@ -101,6 +101,7 @@ class RelativeDephModule(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
+
         x, y = batch
         y_origin = y
         y = cp.resize(y,128)
@@ -154,11 +155,14 @@ class RelativeDephModule(pl.LightningModule):
             self.model.freeze_encoder()
             self.model.update_config([1,0,0,0,0,1,0,0,0,0])
         elif epoch == self.limits[1]:
-            self.model.update_config([1,0,0,0,0,0,1,0,0,0])
+            self.model.freeze_decoder(1)
+            self.model.update_config([1,0,0,0,0,1,1,0,0,0])
         elif epoch == self.limits[2]:
-            self.model.update_config([1,0,0,0,0,0,0,1,0,0])
+            self.model.freeze_decoder(2)
+            self.model.update_config([1,0,0,0,0,1,1,1,0,0])
         elif epoch == self.limits[3]:
-            self.model.update_config([1,0,0,0,0,0,0,0,1,0])
+            self.model.freeze_decoder(3)
+            self.model.update_config([1,0,0,0,0,1,1,1,1,0])
 
     def mask(self, y):
         gt = y
