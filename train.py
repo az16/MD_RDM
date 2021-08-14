@@ -19,7 +19,7 @@ if __name__ == "__main__":
     parser.add_argument('--worker', default=6, type=int, help='Number of workers for data loader')
     parser.add_argument('--find_learning_rate', action='store_true', help="Finding learning rate.")
     parser.add_argument('--detect_anomaly', action='store_true', help='Enables pytorch anomaly detection')
-    parser.add_argument('--switch_limits', default=[10, 20, 30, 40], help='Specifies when to add decoders')
+    parser.add_argument('--switch_limits', default=[10, 20, 30, 40, 50], help='Specifies when to add decoders')
     parser.add_argument('--config', default=[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, ], help='Specifies which decoders are used at the start.')
     
     parser.add_argument('--learning_rate', type=float, default=1e-4, help='Learning rate')
