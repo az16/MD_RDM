@@ -355,7 +355,7 @@ class Ordinal_Layer(nn.Module):
                 #print("D7 input as d_n-1: {0}".format(dn_1))
                 x = self.sparse_comparison_id(dn, dn_1)
                 #print("D7 output after comparison: {0}".format(x))
-                filled_map = cp.alternating_least_squares(sparse_m=x, n=4, limit=100, cuda=x.is_cuda)
+                filled_map = cp.alternating_least_squares(sparse_m=x, n=4, limit=50, cuda=x.is_cuda)
                 # print(filled_map.shape)
                 # print("D7 done.")
                 return filled_map
@@ -364,12 +364,12 @@ class Ordinal_Layer(nn.Module):
                 #for efficiency depth maps are split into 16x16 and 8x8
                 dn = x 
                 dn_1 = cp.resize(dn, self.quant.get_size_id(self.id-1))
-                #print("D8+9 input as d_n: {0}".format(dn))
-                #print("D8+9 input as d_n-1: {0}".format(dn_1))
-                dn_pages, dn_1_pages = cp.split_matrix(dn, dn_1) #two lists of split pages (same length) from dn and dn_1
+                dn_pages, dn_1_pages = torch.split(cp.make_patches(dn, 16, 16), 1, dim=1), torch.split(cp.make_patches(dn_1, 8, 8), 1, dim=1) #two lists of split pages (same length) from dn and dn_1
+                
                 zipped = zip(dn_pages,dn_1_pages)
                 sparse_pages = [self.sparse_comparison_id(z[0], z[1]) for z in zipped]
-                als_filled_pages = [cp.alternating_least_squares(sparse, n=4, limit=100, cuda=x.is_cuda) for sparse in sparse_pages]
+
+                als_filled_pages = [cp.alternating_least_squares(sparse, n=4, limit=50, cuda=x.is_cuda) for sparse in sparse_pages]
                 full_map = cp.reconstruct(als_filled_pages)
                 # print(full_map.shape)
                 # print("D{0} done.".format(self.id+3))
@@ -543,10 +543,10 @@ def _wsm_output_planes(decoder_id):
         return 1
 
 if __name__ == "__main__":
-    inp = torch.randn((4, 3, 226, 226))
-
-    model = DepthEstimationNet()
-    r,_,_ = model(inp)
-    print(r)
+    inp = torch.randn((4, 1, 64, 64))
+    quantizer = Quantization()
+    model = Ordinal_Layer(9, False, quantizer)
+    r = model(inp)
+    print(r.size())
 
 

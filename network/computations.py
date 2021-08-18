@@ -221,20 +221,20 @@ def reconstruct(splits):
     # print("<---------Concat pages2map---------->\n")
     #print("Split shape: {0}".format(splits[0].shape))
     # print("Amount of pages: {0}".format(len(splits)))
-    rows = []
+   
     ratio = int(len(splits)**(1/2))
-    container = None
-    for i in range(ratio):
-        #container = splits.pop(0)
-        #for j in range(ratio-1):
-        #container = torch.cat((container, splits[0:ratio-1], 2))
-        rows.append(torch.cat(splits[0:ratio], 2))
+    # container = None
+    # for i in range(ratio):
+    #     #container = splits.pop(0)
+    #     #for j in range(ratio-1):
+    #     #container = torch.cat((container, splits[0:ratio-1], 2))
+    #     rows.append(torch.cat(splits[0:ratio], 2))
     
-    reconstructed = torch.cat(rows, dim=3)
+    reconstructed = torch.cat(splits, dim=2)
     
-    # print("Output map shape: {0}\n".format(reconstructed.shape))
-
-    return reconstructed
+    #print("Output map shape: {0}\n".format(reconstructed.shape))
+    B, C, H, W = reconstructed.size()
+    return reconstructed.view(B, C, W*ratio, W*ratio)
 
 def geometric_mean(iterable, r, c):
     #print(torch.pow(iterable,1/(r*c)))
@@ -341,6 +341,17 @@ def geometric_resize(t, kernel, stride, p):
         dn_1 = dn_1.cuda()
 
     return dn_1
+
+def make_patches(input_tensor, kernel, stride):
+    B, C, H, W = input_tensor.size()
+    t_uf = input_tensor.unfold(len(input_tensor.shape)-2, kernel, stride).unfold(len(input_tensor.shape)-1, kernel, stride) #make patches
+    t_uf = t_uf.reshape(B, C, int(H/kernel), int(W/kernel), kernel*kernel).permute(0, 1, 4, 2, 3).squeeze(1) #arrange correctly
+    
+    
+    if input_tensor.is_cuda:
+        t_uf = t_uf.cuda()
+
+    return t_uf.view(B, kernel*kernel, int(H/kernel)*int(W/kernel)).permute(0,2,1).view(B, int(H/kernel)*int(W/kernel), kernel, kernel)
 
 def upsample(depth_map):
     depth_map = depth_map.double()
@@ -655,6 +666,8 @@ def get_labels_sid(args, depth):
     return labels.int()
 
 if __name__ == "__main__":
-    test = torch.abs(torch.randn((4,1,4,4)))
-    print(geometric_resize(test, 2, 2, 1/4))
+    test = torch.abs(torch.randn((4,1,64,64)))
+    dn_1 = torch.abs(torch.randn((4,1,16,16)))
+    print(torch.split(make_patches(dn_1, 8, 8), 1, dim=1)[0].size())
+
 
