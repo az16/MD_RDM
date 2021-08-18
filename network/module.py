@@ -155,17 +155,17 @@ class RelativeDephModule(pl.LightningModule):
             self.model.freeze_encoder()
             self.model.update_config([1,0,0,0,0,1,0,0,0,0])
         elif epoch == self.limits[1]:
-            #self.model.freeze_decoder(1)
-            self.model.update_config([1,0,0,0,0,0,1,0,0,0])
+            self.model.freeze_decoder(1)
+            self.model.update_config([1,0,0,0,0,1,1,0,0,0])
         elif epoch == self.limits[2]:
-            #self.model.freeze_decoder(2)
-            self.model.update_config([1,0,0,0,0,0,0,1,0,0])
+            self.model.freeze_decoder(2)
+            self.model.update_config([1,0,0,0,0,1,1,1,0,0])
         elif epoch == self.limits[3]:
-            #self.model.freeze_decoder(3)
-            self.model.update_config([1,0,0,0,0,0,0,0,1,0])
-        elif epoch == self.limits[4]:
-            #self.model.freeze_decoder(4)
+            self.model.freeze_decoder(3)
             self.model.update_config([1,0,0,0,0,1,1,1,1,0])
+        # elif epoch == self.limits[4]:
+        #     self.model.freeze_decoder(4)
+        #     self.model.update_config([1,0,0,0,0,1,1,1,1,0])
 
     def mask(self, y):
         gt = y
