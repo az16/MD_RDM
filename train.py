@@ -57,7 +57,7 @@ if __name__ == "__main__":
     trainer = pl.Trainer(
         log_gpu_memory=False,
         fast_dev_run=args.dev,
-        profiler=True,
+        profiler="simple",
         gpus=args.gpus,
         overfit_batches=1 if args.overfit else 0,
         precision=args.precision if use_gpu else 32,
