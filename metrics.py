@@ -7,6 +7,7 @@
 import torch 
 import pytorch_lightning as pl
 from pytorch_lightning.metrics.metric import Metric
+import pytorch_lightning.metrics.functional as plf
 
 class MetricLogger(object):
     def __init__(self, metrics, module):
@@ -113,7 +114,7 @@ def RelativeMeanSquareError(pred, target):
         raise NotComputableError("The ground truth has 0.")
     return torch.sqrt((pred - target)**2 / target).mean()
 
-METRICS = pl.metrics.__dict__ #.functional.__dict__
+METRICS = plf.__dict__ #pl.metrics.functional.__dict__
 METRICS['mse'] = METRICS['mean_squared_error']
 METRICS['msle'] = METRICS['mean_squared_log_error']
 METRICS['mae'] = METRICS['mean_absolute_error']

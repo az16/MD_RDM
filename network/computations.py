@@ -3,6 +3,7 @@ import torch.nn as nn
 import math
 
 
+
 def principal_eigen(p_3):
     """
     Approximates [d1..d64]^T if P3 has errors
@@ -669,5 +670,4 @@ if __name__ == "__main__":
     test = torch.abs(torch.randn((4,1,64,64)))
     dn_1 = torch.abs(torch.randn((4,1,16,16)))
     print(torch.split(make_patches(dn_1, 8, 8), 1, dim=1)[0].size())
-
 
