@@ -99,22 +99,22 @@ class DepthEstimationNet(BaseModel):
         x_d7 = torch.ones((B,C,16,16))
         x_d8 = torch.ones((B,C,32,32))
         x_d9 = torch.ones((B,C,64,64))
-
-        if self.config[5] == 1:
+        #print("Config {0}".format(self.config[11]))
+        if int(self.config[11]) == 1:
             x_d6 = self.d_6(x)#relative
-        if self.config[6] == 1:
+        if int(self.config[13]) == 1:
             x_d7 = self.d_7(x)#relative
-        if self.config[7] == 1:
+        if int(self.config[15]) == 1:
             x_d8 = self.d_8(x)#relative
-        if self.config[8] == 1:
+        if int(self.config[17]) == 1:
             x_d9 = self.d_9(x)#relative
-       
-        #print(x_d6)
+        #print(x_d7)
         f_d1 = cp.decomp(torch.div(x_d1,cp.quick_gm(x_d1.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)), 3)[::-1]
         f_d6 = cp.decomp(x_d6, 3, relative_map=True)[::-1]
         f_d7 = cp.decomp(x_d7, 4, relative_map=True)[::-1]
         f_d8 = cp.decomp(x_d8, 5, relative_map=True)[::-1]
         f_d9 = cp.decomp(x_d9, 6, relative_map=True)[::-1]
+
         #print(f_d6)
         #bring into matrix form
         y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9], use_cuda)
@@ -146,7 +146,7 @@ class Decoder(nn.Module):
         if self.id == 1:
             x = self.conv2(x)
         x = self.ord_layer(x)
-        #print(x)
+
         return x
 class WSMLayer(nn.Module):
     def __init__(self, in_channels, kernel_size, stride, layer_id):
@@ -241,7 +241,7 @@ class Ordinal_Layer(nn.Module):
 
         depth_labels = torch.zeros(B, size, size, 40)
         relative_depth_map = self.LloydQuantization(depth_labels, sparse_m)
-        ## print(relative_depth_map.shape)
+        #print("Map after LLoyd: {0}".format(relative_depth_map))
         return relative_depth_map
 
     def sparse_comparison_id(self, dn, dn_1):
@@ -271,7 +271,7 @@ class Ordinal_Layer(nn.Module):
         sparse_m = torch.cat(test,1)
         depth_labels = torch.zeros(B,H*W,H_1*W_1, 40) 
         relative_depth_map = self.LloydQuantization(depth_labels, sparse_m, id=self.id)
-        ## print(relative_depth_map.shape)
+        #print("Map after Lloyd: {0}".format(relative_depth_map))           
         return relative_depth_map
 
     def LloydQuantization(self, labels, relative_depths,  id=3):
@@ -356,6 +356,7 @@ class Ordinal_Layer(nn.Module):
                 x = self.sparse_comparison_id(dn, dn_1)
                 #print("D7 output after comparison: {0}".format(x))
                 filled_map = cp.alternating_least_squares(sparse_m=x, n=4, limit=50, cuda=x.is_cuda)
+                #print("Map after ALS: {0}".format(filled_map))
                 # print(filled_map.shape)
                 # print("D7 done.")
                 return filled_map

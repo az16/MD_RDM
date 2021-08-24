@@ -117,7 +117,7 @@ class RelativeDephModule(pl.LightningModule):
         y_hat, _ = self.compute_final_depth(fine_details, y)
         y_hat = torch.exp(cp.resize(y_hat,226))
         self.save_visual(x, norm, y_hat, batch_idx)
-        #self.switch_config(self.current_epoch)
+        self.switch_config(self.current_epoch)
         return self.metric_logger.log_val(y_hat, norm)
     
     def compute_final_depth(self, fine_detail_list, target):
