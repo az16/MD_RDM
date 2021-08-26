@@ -33,16 +33,24 @@ class RelativeDephModule(pl.LightningModule):
                                                     num_workers=worker, 
                                                     pin_memory=True) 
         self.criterion = torch.nn.MSELoss()
-        self.limits = limits
+        self.limits = self.convert_to_list(limits)
+        self.config = self.convert_to_list(config)
         self.skip = len(self.val_loader) // 9
         #is_cuda = not gpus == 0
         #RDM_Net.use_cuda = is_cuda
         print("Use cuda: {0}".format(is_cuda))
         if is_cuda:
-            self.model = DepthEstimationNet(config).cuda()
+            self.model = DepthEstimationNet(self.config).cuda()
         else:
-            self.model = DepthEstimationNet(config)
+            self.model = DepthEstimationNet(self.config)
 
+    def convert_to_list(self, config_string):
+        trimmed_brackets = config_string[1:len(config_string)-1]
+        splits = trimmed_brackets.split(",")
+        for num in splits:
+            num = int(num)
+
+        return splits
         
 
     def configure_optimizers(self):
@@ -96,7 +104,6 @@ class RelativeDephModule(pl.LightningModule):
         self.log("MSE", mse, prog_bar=True)
         self.log("Ord_Loss", ord_loss, prog_bar=True)
         self.log("Fine_Detail", fine_detail_loss, prog_bar=True)  
-
         return self.metric_logger.log_train(final_depth, self.normalize(y), loss_all)
 
     def validation_step(self, batch, batch_idx):
@@ -155,14 +162,14 @@ class RelativeDephModule(pl.LightningModule):
             self.model.freeze_encoder()
             self.model.update_config([1,0,0,0,0,1,0,0,0,0])
         elif epoch == self.limits[1]:
-            self.model.freeze_decoder(1)
-            self.model.update_config([1,0,0,0,0,1,1,0,0,0])
+            #self.model.freeze_decoder(1)
+            self.model.update_config([1,0,0,0,0,0,1,0,0,0])
         elif epoch == self.limits[2]:
-            self.model.freeze_decoder(2)
-            self.model.update_config([1,0,0,0,0,1,1,1,0,0])
+            #self.model.freeze_decoder(2)
+            self.model.update_config([1,0,0,0,0,0,0,1,0,0])
         elif epoch == self.limits[3]:
-            self.model.freeze_decoder(3)
-            self.model.update_config([1,0,0,0,0,1,1,1,1,0])
+            #self.model.freeze_decoder(3)
+            self.model.update_config([1,0,0,0,0,0,0,0,1,0])
         # elif epoch == self.limits[4]:
         #     self.model.freeze_decoder(4)
         #     self.model.update_config([1,0,0,0,0,1,1,1,1,0])

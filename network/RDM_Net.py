@@ -45,11 +45,11 @@ class DepthEstimationNet(BaseModel):
         self.encoder = _make_encoder_()
         #Decoders 1-10
         #First 5 estimate regular depth maps using ordinal loss and SID algorithm
-        # self.d_1 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=1, quant=self.quantizers)
+        self.d_1 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=1, quant=self.quantizers)
         # self.d_2 = Decoder(in_channels=1056, num_wsm_layers=1, DORN=True, id=2, quant=self.quantizers)
         # self.d_3 = Decoder(in_channels=1056, num_wsm_layers=2, DORN=True, id=3, quant=self.quantizers)
         # self.d_4 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=True, id=4, quant=self.quantizers)
-        self.d_5 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=True, id=5, quant=self.quantizers)
+        # self.d_5 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=True, id=5, quant=self.quantizers)
         
         #Remaining 5 estimate relative depth maps using ALS
         self.d_6 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=6, quant=self.quantizers)
@@ -58,8 +58,8 @@ class DepthEstimationNet(BaseModel):
         self.d_9 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=False, id=9, quant=self.quantizers)
         # self.d_10 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=False, id=10, quant=self.quantizers)
 
-        self.weight_layer = Weights(vector_sizes=[1,5,5,5,4,3,2,1], use_cuda=use_cuda)
-        self.decoders = [self.d_5, self.d_6, self.d_7, self.d_8, self.d_9]
+        self.weight_layer = Weights(vector_sizes=[1,5,5,5,3,2,1,0], use_cuda=use_cuda)
+        self.decoders = [self.d_1, self.d_6, self.d_7, self.d_8, self.d_9]
 
     def freeze_encoder(self):
         for parameter in self.encoder.parameters():
@@ -75,7 +75,6 @@ class DepthEstimationNet(BaseModel):
 
     def forward(self, x):
         #encoder propagation
-
         x = self.encoder.conv_e1(x)
         x = self.encoder.max_e1(x)
         x = self.encoder.dense_e2(x)
@@ -92,24 +91,24 @@ class DepthEstimationNet(BaseModel):
         #print((x==0).any())
         if use_cuda:
             x.cuda()
-        x_d1, ord_labels = self.d_5(x)#regular
+        x_d1, ord_labels = self.d_1(x)#regular
         B,C,H,W = x_d1.size()
 
         x_d6 = torch.ones((B,C,H,W))
         x_d7 = torch.ones((B,C,16,16))
         x_d8 = torch.ones((B,C,32,32))
         x_d9 = torch.ones((B,C,64,64))
-        #print("Config {0}".format(self.config[11]))
-        if int(self.config[11]) == 1:
+
+        if int(self.config[5]) == 1:
             x_d6 = self.d_6(x)#relative
-        if int(self.config[13]) == 1:
+        if int(self.config[6]) == 1:
             x_d7 = self.d_7(x)#relative
-        if int(self.config[15]) == 1:
+        if int(self.config[7]) == 1:
             x_d8 = self.d_8(x)#relative
-        if int(self.config[17]) == 1:
+        if int(self.config[8]) == 1:
             x_d9 = self.d_9(x)#relative
         #print(x_d7)
-        f_d1 = cp.decomp(torch.div(x_d1,cp.quick_gm(x_d1.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)), 7)[::-1]
+        f_d1 = cp.decomp(torch.div(x_d1,cp.quick_gm(x_d1.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)), 3)[::-1]
         f_d6 = cp.decomp(x_d6, 3, relative_map=True)[::-1]
         f_d7 = cp.decomp(x_d7, 4, relative_map=True)[::-1]
         f_d8 = cp.decomp(x_d8, 5, relative_map=True)[::-1]
@@ -541,7 +540,7 @@ def _wsm_output_planes(decoder_id):
     elif decoder_id==10:
         return 104
     else:
-        return 1
+        raise NameError
 
 if __name__ == "__main__":
     inp = torch.randn((4, 1, 64, 64))
