@@ -161,6 +161,7 @@ class RelativeDephModule(pl.LightningModule):
         if epoch == self.limits[0]:
             self.model.freeze_encoder()
             self.model.update_config([1,0,0,0,0,1,0,0,0,0])
+            print(self.model.config)
         elif epoch == self.limits[1]:
             #self.model.freeze_decoder(1)
             self.model.update_config([1,0,0,0,0,0,1,0,0,0])
