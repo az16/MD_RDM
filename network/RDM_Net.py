@@ -99,13 +99,13 @@ class DepthEstimationNet(BaseModel):
         x_d8 = torch.ones((B,C,32,32))
         x_d9 = torch.ones((B,C,64,64))
 
-        if int(self.config[5]) == 1:
+        if self.config[5] == 1:
             x_d6 = self.d_6(x)#relative
-        if int(self.config[6]) == 1:
+        if self.config[6] == 1:
             x_d7 = self.d_7(x)#relative
-        if int(self.config[7]) == 1:
+        if self.config[7] == 1:
             x_d8 = self.d_8(x)#relative
-        if int(self.config[8]) == 1:
+        if self.config[8] == 1:
             x_d9 = self.d_9(x)#relative
         #print(x_d7)
         f_d1 = cp.decomp(torch.div(x_d1,cp.quick_gm(x_d1.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)), 3)[::-1]
