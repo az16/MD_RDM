@@ -114,10 +114,10 @@ def RelativeMeanSquareError(pred, target):
         raise NotComputableError("The ground truth has 0.")
     return torch.sqrt((pred - target)**2 / target).mean()
 
-METRICS = pl.metrics.functional.__dict__#plf.__dict__ 
-METRICS['mse'] = METRICS['mean_squared_error']
-METRICS['msle'] = METRICS['mean_squared_log_error']
-METRICS['mae'] = METRICS['mean_absolute_error']
+METRICS = plf.__dict__ #pl.metrics.functional.__dict__ 
+#METRICS['mse'] = METRICS['mean_squared_error']
+#METRICS['msle'] = METRICS['mean_squared_log_error']
+#METRICS['mae'] = METRICS['mean_absolute_error']
 METRICS['delta1'] = Delta1_multi_gpu#Delta(exp=1, name="delta1")
 METRICS['delta2'] = Delta2_multi_gpu#Delta(exp=2, name="delta2")
 METRICS['delta3'] = Delta3_multi_gpu#Delta(exp=3, name="delta3")
@@ -125,3 +125,8 @@ METRICS['log10'] = Log10_multi_gpu#Log10(name="log10")
 METRICS['absrel'] = AbsoluteRelativeError
 METRICS['sqrel'] = RelativeSquareError
 METRICS['rmse'] = RelativeMeanSquareError
+
+if __name__ == "__main__":
+    #print(METRICS.)
+    pass
+    
