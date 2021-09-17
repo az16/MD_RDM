@@ -83,8 +83,6 @@ class RelativeDephModule(pl.LightningModule):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
 
-        print(x.size())
-
         if is_cuda:
             y = y.cuda() 
         
@@ -126,7 +124,7 @@ class RelativeDephModule(pl.LightningModule):
         fine_details, _, _ = self(x)
         y_hat, _ = self.compute_final_depth(fine_details, y)
         y_hat = torch.exp(cp.resize(y_hat,226))
-        self.save_visual(self.crop(x,128,128), cp.resize(norm, 128), cp.resize(y_hat, 128), batch_idx)
+        self.save_visual(torch.nn.functional.interpolate(x, size=128), cp.resize(norm, 128), cp.resize(y_hat, 128), batch_idx)
         self.switch_config(self.current_epoch)
         return self.metric_logger.log_val(y_hat, norm)
     
@@ -135,8 +133,8 @@ class RelativeDephModule(pl.LightningModule):
         B,C,H,W = target.size()
 
         component_target = cp.decomp(self.normalize(target), 7)[::-1]
-        tmp = cp.alt_resize(target, n=4)
-        ord_components = cp.decomp(self.normalize(u.depth2label_sid(tmp, cuda=is_cuda)), 3)[::-1]
+        #tmp = cp.alt_resize(target, n=4)
+        ord_components = cp.decomp(self.normalize(u.depth2label_sid(target, cuda=is_cuda)), 7)[::-1]
         component_target[0] = ord_components[0]
         component_target = [torch.log(x) for x in component_target]
         #optimize weight layer
