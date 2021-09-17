@@ -83,6 +83,8 @@ class RelativeDephModule(pl.LightningModule):
         if batch_idx == 0: self.metric_logger.reset()
         x, y = batch
 
+        print(x.size())
+
         if is_cuda:
             y = y.cuda() 
         
@@ -99,8 +101,9 @@ class RelativeDephModule(pl.LightningModule):
         mse = self.criterion(final_depth, self.normalize(y))
 
         loss_all = mse + ord_loss + fine_detail_loss
- 
-       
+
+        #self.save_visual(self.crop(x,128,128), cp.resize(y, 128), cp.resize(final_depth, 128), batch_idx)
+
         self.log("MSE", mse, prog_bar=True)
         self.log("Ord_Loss", ord_loss, prog_bar=True)
         self.log("Fine_Detail", fine_detail_loss, prog_bar=True)  
@@ -123,7 +126,7 @@ class RelativeDephModule(pl.LightningModule):
         fine_details, _, _ = self(x)
         y_hat, _ = self.compute_final_depth(fine_details, y)
         y_hat = torch.exp(cp.resize(y_hat,226))
-        self.save_visual(x, norm, y_hat, batch_idx)
+        self.save_visual(self.crop(x,128,128), cp.resize(norm, 128), cp.resize(y_hat, 128), batch_idx)
         self.switch_config(self.current_epoch)
         return self.metric_logger.log_val(y_hat, norm)
     
@@ -191,3 +194,11 @@ class RelativeDephModule(pl.LightningModule):
         elif batch_idx == 8 * self.skip:
             filename = "{}/{}/version_{}/epoch{}.jpg".format(self.logger.save_dir, self.logger.name, self.logger.version, self.current_epoch)
             u.save_image(self.img_merge, filename)
+    
+    def crop(self, variable, tw, th):
+
+        b, c, w, h = variable.size()
+        x1 = int(round((w - tw) / 2.))
+        y1 = int(round((h - th) / 2.))
+
+        return variable[:, :, x1:x1+tw, y1:y1+th]

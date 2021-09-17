@@ -668,7 +668,7 @@ def get_labels_sid(args, depth):
     return labels.int()
 
 if __name__ == "__main__":
-    test = torch.abs(torch.randn((4,1,64,64)))
+    test = torch.abs(torch.randn((4,3,226,226)))
     dn_1 = torch.abs(torch.randn((4,1,16,16)))
-    print(torch.split(make_patches(dn_1, 8, 8), 1, dim=1)[0].size())
+    print(resize(test, 128))
 
