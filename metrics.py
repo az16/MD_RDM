@@ -127,6 +127,6 @@ METRICS['sqrel'] = RelativeSquareError
 METRICS['rmse'] = RelativeMeanSquareError
 
 if __name__ == "__main__":
-    #print(plf.__dict__.values())
-    pass
+    print(pl.__version__)
+
     
