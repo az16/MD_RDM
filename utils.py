@@ -255,7 +255,7 @@ def depth2label_sid(depth, K=90.0, alpha=0.02, beta=10.0, cuda=False):
 
     label = K * torch.log(depth / alpha) / torch.log(beta / alpha)
     if cuda:
-        label = torch.max(label, torch.zeros(label.shape).cuda()) # prevent negative label.
+        label = torch.max(label, (torch.zeros(label.shape).double()).cuda()) # prevent negative label.
         label = label.cuda()
     else:
         label = torch.max(label, torch.zeros(label.shape).double())
