@@ -137,9 +137,9 @@ class RelativeDephModule(pl.LightningModule):
         #print("Nan after norm: {0}".format(torch.isnan(self.normalize(target)).any()))
         #print("Nan after sid: {0}".format(torch.isinf(u.depth2label_sid(target, cuda=is_cuda)).any()))
         #print(self.normalize(u.depth2label_sid(target, cuda=is_cuda)))
-        ord_components = cp.decomp(u.depth2label_sid(self.normalize(target), cuda=is_cuda), 7)[::-1]
+        #ord_components = cp.decomp(self.normalize(target), 7)[::-1]#u.depth2label_sid(self.normalize(target), cuda=is_cuda), 7)[::-1]
 
-        component_target[0] = ord_components[0]
+        #component_target[0] = ord_components[0]
         component_target = [torch.log(x) for x in component_target]
         #optimize weight layer
         components, loss = cp.optimize_components(fine_detail_list, component_target, is_cuda)
