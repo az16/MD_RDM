@@ -140,8 +140,6 @@ class RelativeDephModule(pl.LightningModule):
         ord_components = cp.decomp(self.normalize(u.depth2label_sid(target, cuda=is_cuda)), 7)[::-1]
         component_target[0] = ord_components[0]
         component_target = [torch.log(x) for x in component_target]
-        for comp in component_target:
-            print(torch.isnan(comp).any())
         #optimize weight layer
         components, loss = cp.optimize_components(fine_detail_list, component_target, is_cuda)
         #returns optimal candidates are recombined to final depth map
