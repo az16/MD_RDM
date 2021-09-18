@@ -571,8 +571,10 @@ def squared_err(yhat,y, cuda):
     for i in range(len(yhat)):
         #if i==0:
         #print(yhat[i].is_cuda, y[i].is_cuda)
-        print("squared_err(Pred nan, Target nan) = ({0},{1})".format(torch.isnan(yhat[i]).any(), torch.isnan(y[i]).any()))
-        print("squared_err(Pred nan, Target nan) = ({0},{1})".format(torch.isnan(torch.exp(yhat[i])).any(), torch.isnan(torch.exp(y[i])).any()))
+        #print("squared_err(Pred nan, Target nan) = ({0},{1})".format(torch.isnan(yhat[i]).any(), torch.isnan(y[i]).any()))
+        #print("squared_err(Pred nan, Target nan) = ({0},{1})".format(torch.isnan(torch.exp(yhat[i])).any(), torch.isnan(torch.exp(y[i])).any()))
+        if torch.isnan(y[i]).any():
+            print(True, yhat)
         if cuda:
             sqr_err_list.append(torch.nn.MSELoss()(torch.exp(yhat[i]),torch.exp(y[i])).cuda())
         else:
