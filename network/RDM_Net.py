@@ -108,8 +108,8 @@ class DepthEstimationNet(BaseModel):
         if self.config[8] == 1:
             x_d9 = self.d_9(x)#relative
         #print(x_d7)
-        print("x_d1: {0}".format(torch.isnan(x_d1).any()))
-        print("x_d1 ord: {0}".format(torch.isnan(ord_labels).any()))
+        # print("x_d1: {0}".format(torch.isnan(x_d1).any()))
+        # print("x_d1 ord: {0}".format(torch.isnan(ord_labels).any()))
         f_d1 = cp.decomp(torch.div(x_d1,cp.quick_gm(x_d1.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)), 7)[::-1]
         f_d6 = cp.decomp(x_d6, 3, relative_map=True)[::-1]
         f_d7 = cp.decomp(x_d7, 4, relative_map=True)[::-1]
@@ -118,14 +118,14 @@ class DepthEstimationNet(BaseModel):
 
         #print(f_d6)
         #bring into matrix form
-        for f in f_d1:
-            print(torch.isnan(f).any())
+        # for f in f_d1:
+        #     print(torch.isnan(f).any())
         y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9], use_cuda)
-        for mat in y_hat:
-            print("y_hat: {0}".format(torch.isnan(mat).any()))
+        # for mat in y_hat:
+        #     print("y_hat: {0}".format(torch.isnan(mat).any()))
         y_hat = self.weight_layer(y_hat)
-        for mat in y_hat:
-            print("weighted y_hat: {0}".format(torch.isnan(mat).any()))
+        # for mat in y_hat:
+        #     print("weighted y_hat: {0}".format(torch.isnan(mat).any()))
         return y_hat, x_d1, ord_labels
 
 class Decoder(nn.Module):
