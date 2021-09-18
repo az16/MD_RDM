@@ -135,7 +135,7 @@ class RelativeDephModule(pl.LightningModule):
         component_target = cp.decomp(self.normalize(target), 7)[::-1]
         #tmp = cp.alt_resize(target, n=4)
         #print("Nan after norm: {0}".format(torch.isnan(self.normalize(target)).any()))
-        print("Nan after sid: {0}".format(torch.isinf(u.depth2label_sid(target, cuda=is_cuda))).any())
+        print("Nan after sid: {0}".format(torch.isinf(u.depth2label_sid(target, cuda=is_cuda)).any()))
         #print(self.normalize(u.depth2label_sid(target, cuda=is_cuda)))
         ord_components = cp.decomp(self.normalize(u.depth2label_sid(target, cuda=is_cuda)), 7)[::-1]
 
