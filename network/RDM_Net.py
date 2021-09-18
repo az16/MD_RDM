@@ -147,8 +147,8 @@ class Decoder(nn.Module):
             x = self.conv2(x)
             print("Nan after conv2: {0}".format(torch.isnan(x).any()))
         x = self.ord_layer(x)
-        print("Nan after ordinal: {0}".format(torch.isnan(x).any()))
-
+        print("Nan after ordinal1: {0}".format(torch.isnan(x[0]).any()))
+        print("Nan after ordinal2: {0}".format(torch.isnan(x[1]).any()))
         return x
 class WSMLayer(nn.Module):
     def __init__(self, in_channels, kernel_size, stride, layer_id):
