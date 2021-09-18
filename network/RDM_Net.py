@@ -124,7 +124,8 @@ class DepthEstimationNet(BaseModel):
         for mat in y_hat:
             print("y_hat: {0}".format(torch.isnan(mat).any()))
         y_hat = self.weight_layer(y_hat)
-        print("weighted y_hat: {0}".format(torch.isnan(y_hat).any()))
+        for mat in y_hat:
+            print("weighted y_hat: {0}".format(torch.isnan(mat).any()))
         return y_hat, x_d1, ord_labels
 
 class Decoder(nn.Module):
