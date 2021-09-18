@@ -137,15 +137,17 @@ class Decoder(nn.Module):
     def forward(self, x):
 
         x = self.dense_layer(x)
-        #print("Nan after dense: {0}".format(torch.isnan(x).any()))
+        print("Nan after dense: {0}".format(torch.isnan(x).any()))
         x = self.wsm_block(x)
-        #print("Nan after wsm: {0}".format(torch.isnan(x).any()))
+        print("Nan after wsm: {0}".format(torch.isnan(x).any()))
         #print(x.shape)
         if self.id > 5:
             x = self.conv1(x)#make feature map have only one channel
         if self.id == 1 or self.id == 5:
             x = self.conv2(x)
+            print("Nan after conv2: {0}".format(torch.isnan(x).any()))
         x = self.ord_layer(x)
+        print("Nan after ordinal: {0}".format(torch.isnan(x).any()))
 
         return x
 class WSMLayer(nn.Module):
