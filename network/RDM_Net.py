@@ -121,7 +121,8 @@ class DepthEstimationNet(BaseModel):
         for f in f_d1:
             print(torch.isnan(f).any())
         y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9], use_cuda)
-        print("y_hat: {0}".format(torch.isnan(y_hat).any()))
+        for mat in y_hat:
+            print("y_hat: {0}".format(torch.isnan(mat).any()))
         y_hat = self.weight_layer(y_hat)
         print("weighted y_hat: {0}".format(torch.isnan(y_hat).any()))
         return y_hat, x_d1, ord_labels
