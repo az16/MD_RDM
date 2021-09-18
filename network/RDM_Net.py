@@ -108,6 +108,8 @@ class DepthEstimationNet(BaseModel):
         if self.config[8] == 1:
             x_d9 = self.d_9(x)#relative
         #print(x_d7)
+        print("x_d1: {0}".format(torch.isnan(x_d1).any()))
+        print("x_d1 ord: {0}".format(torch.isnan(ord_labels).any()))
         f_d1 = cp.decomp(torch.div(x_d1,cp.quick_gm(x_d1.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)), 7)[::-1]
         f_d6 = cp.decomp(x_d6, 3, relative_map=True)[::-1]
         f_d7 = cp.decomp(x_d7, 4, relative_map=True)[::-1]
@@ -116,9 +118,12 @@ class DepthEstimationNet(BaseModel):
 
         #print(f_d6)
         #bring into matrix form
+        for f in f_d1:
+            print(torch.isnan(f).any())
         y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9], use_cuda)
+        print("y_hat: {0}".format(torch.isnan(y_hat).any()))
         y_hat = self.weight_layer(y_hat)
-        
+        print("weighted y_hat: {0}".format(torch.isnan(y_hat).any()))
         return y_hat, x_d1, ord_labels
 
 class Decoder(nn.Module):
@@ -137,18 +142,18 @@ class Decoder(nn.Module):
     def forward(self, x):
 
         x = self.dense_layer(x)
-        print("Nan after dense: {0}".format(torch.isnan(x).any()))
+        #print("Nan after dense: {0}".format(torch.isnan(x).any()))
         x = self.wsm_block(x)
-        print("Nan after wsm: {0}".format(torch.isnan(x).any()))
+        #print("Nan after wsm: {0}".format(torch.isnan(x).any()))
         #print(x.shape)
         if self.id > 5:
             x = self.conv1(x)#make feature map have only one channel
         if self.id == 1 or self.id == 5:
             x = self.conv2(x)
-            print("Nan after conv2: {0}".format(torch.isnan(x).any()))
+           # print("Nan after conv2: {0}".format(torch.isnan(x).any()))
         x = self.ord_layer(x)
-        print("Nan after ordinal1: {0}".format(torch.isnan(x[0]).any()))
-        print("Nan after ordinal2: {0}".format(torch.isnan(x[1]).any()))
+        #print("Nan after ordinal1: {0}".format(torch.isnan(x[0]).any()))
+        #print("Nan after ordinal2: {0}".format(torch.isnan(x[1]).any()))
         return x
 class WSMLayer(nn.Module):
     def __init__(self, in_channels, kernel_size, stride, layer_id):
