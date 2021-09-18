@@ -564,7 +564,7 @@ def make_pred(w, A, cuda):
             A[i] = tmp.view(B,1,int(math.sqrt(M)),int(math.sqrt(M)))
     return A
 
-def squared_err(yhat,y, cuda):
+def squared_err(yhat, y, cuda):
     sqr_err_list = []
     # if yhat[0].shape[2] > y[0].shape[2]:
     #     y.pop(0)
@@ -574,7 +574,7 @@ def squared_err(yhat,y, cuda):
         #print("squared_err(Pred nan, Target nan) = ({0},{1})".format(torch.isnan(yhat[i]).any(), torch.isnan(y[i]).any()))
         #print("squared_err(Pred nan, Target nan) = ({0},{1})".format(torch.isnan(torch.exp(yhat[i])).any(), torch.isnan(torch.exp(y[i])).any()))
         if torch.isnan(y[i]).any():
-            print(True, yhat[0])
+            print(True, y[i])
 
         if cuda:
             sqr_err_list.append(torch.nn.MSELoss()(torch.exp(yhat[i]),torch.exp(y[i])).cuda())
