@@ -55,11 +55,11 @@ class DepthEstimationNet(BaseModel):
         self.d_6 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=6, quant=self.quantizers)
         self.d_7 = Decoder(in_channels=1056, num_wsm_layers=1, DORN=False, id=7, quant=self.quantizers)
         self.d_8 = Decoder(in_channels=1056, num_wsm_layers=2, DORN=False, id=8, quant=self.quantizers)
-        self.d_9 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=False, id=9, quant=self.quantizers)
+        #self.d_9 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=False, id=9, quant=self.quantizers)
         # self.d_10 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=False, id=10, quant=self.quantizers)
 
-        self.weight_layer = Weights(vector_sizes=[2,6,6,6,4,3,2,1], use_cuda=use_cuda)
-        self.decoders = [self.d_1, self.d_5, self.d_6, self.d_7, self.d_8, self.d_9]
+        self.weight_layer = Weights(vector_sizes=[2,5,5,5,3,2,1,1], use_cuda=use_cuda)
+        self.decoders = [self.d_1, self.d_5, self.d_6, self.d_7, self.d_8]
 
     def freeze_encoder(self):
         for parameter in self.encoder.parameters():
@@ -99,7 +99,7 @@ class DepthEstimationNet(BaseModel):
         x_d6 = torch.ones((B,C,8,8))
         x_d7 = torch.ones((B,C,16,16))
         x_d8 = torch.ones((B,C,32,32))
-        x_d9 = torch.ones((B,C,64,64))
+        #x_d9 = torch.ones((B,C,64,64))
 
         if self.config[5] == 1:
             x_d6 = self.d_6(x)#relative
@@ -107,8 +107,8 @@ class DepthEstimationNet(BaseModel):
             x_d7 = self.d_7(x)#relative
         if self.config[7] == 1:
             x_d8 = self.d_8(x)#relative
-        if self.config[8] == 1:
-            x_d9 = self.d_9(x)#relative
+        # if self.config[8] == 1:
+        #     x_d9 = self.d_9(x)#relative
         #print(x_d7)
         # print("x_d1: {0}".format(torch.isnan(x_d1).any()))
         # print("x_d1 ord: {0}".format(torch.isnan(ord_labels).any()))
@@ -117,13 +117,13 @@ class DepthEstimationNet(BaseModel):
         f_d6 = cp.decomp(x_d6, 3, relative_map=True)[::-1]
         f_d7 = cp.decomp(x_d7, 4, relative_map=True)[::-1]
         f_d8 = cp.decomp(x_d8, 5, relative_map=True)[::-1]
-        f_d9 = cp.decomp(x_d9, 6, relative_map=True)[::-1]
+        #f_d9 = cp.decomp(x_d9, 6, relative_map=True)[::-1]
 
         #print(f_d6)
         #bring into matrix form
         # for f in f_d1:
         #     print(torch.isnan(f).any())
-        y_hat = cp.relative_fine_detail_matrix([f_d1, f_d5, f_d6, f_d7, f_d8, f_d9], use_cuda)
+        y_hat = cp.relative_fine_detail_matrix([f_d1, f_d5, f_d6, f_d7, f_d8], use_cuda)
         # for mat in y_hat:
         #     print("y_hat: {0}".format(torch.isnan(mat).any()))
         y_hat = self.weight_layer(y_hat)
