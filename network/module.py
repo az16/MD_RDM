@@ -88,10 +88,18 @@ class RelativeDephModule(pl.LightningModule):
         
         y = self.mask(y)
         fine_details, ord_depth_pred, ord_label_pred = self(x)
+        odp_d1 = ord_depth_pred[0]
+        odp_d5 = ord_depth_pred[1]
+        olp_d1 = ord_label_pred[0]
+        olp_d5 = ord_label_pred[1]
 
-        ord_y = self.compute_ordinal_target(ord_depth_pred, cp.resize(y,128))
-        ord_loss = l.Ordinal_Loss().calc(ord_label_pred, ord_y, cuda=is_cuda)   
+        ord_y_d1 = self.compute_ordinal_target(odp_d1, cp.resize(y,128))
+        ord_loss_d1 = l.Ordinal_Loss().calc(olp_d1, ord_y_d1, cuda=is_cuda)
 
+        ord_y_d5 = self.compute_ordinal_target(odp_d5, cp.resize(y,128))
+        ord_loss_d5 = l.Ordinal_Loss().calc(olp_d5, ord_y_d5, cuda=is_cuda)   
+
+        ord_loss = ord_loss_d1 + ord_loss_d5
         final_depth, fine_detail_loss = self.compute_final_depth(fine_details, cp.resize(y,128))
         final_depth = cp.resize(final_depth, 226).float()
         final_depth = torch.exp(final_depth)
@@ -176,9 +184,9 @@ class RelativeDephModule(pl.LightningModule):
         elif epoch == self.limits[3]:
             #self.model.freeze_decoder(3)
             self.model.update_config([1,0,0,0,0,0,0,0,1,0])
-        # elif epoch == self.limits[4]:
-        #     self.model.freeze_decoder(4)
-        #     self.model.update_config([1,0,0,0,0,1,1,1,1,0])
+        elif epoch == self.limits[4]:
+             #self.model.freeze_decoder(4)
+             self.model.update_config([1,0,0,0,0,1,1,1,1,0])
 
     def mask(self, y):
         gt = y

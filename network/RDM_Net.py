@@ -45,11 +45,11 @@ class DepthEstimationNet(BaseModel):
         self.encoder = _make_encoder_()
         #Decoders 1-10
         #First 5 estimate regular depth maps using ordinal loss and SID algorithm
-        #self.d_1 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=1, quant=self.quantizers)
+        self.d_1 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=1, quant=self.quantizers)
         # self.d_2 = Decoder(in_channels=1056, num_wsm_layers=1, DORN=True, id=2, quant=self.quantizers)
         # self.d_3 = Decoder(in_channels=1056, num_wsm_layers=2, DORN=True, id=3, quant=self.quantizers)
         # self.d_4 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=True, id=4, quant=self.quantizers)
-        self.d_1 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=True, id=5, quant=self.quantizers)
+        self.d_5 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=True, id=5, quant=self.quantizers)
         
         #Remaining 5 estimate relative depth maps using ALS
         self.d_6 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=6, quant=self.quantizers)
@@ -58,8 +58,8 @@ class DepthEstimationNet(BaseModel):
         self.d_9 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=False, id=9, quant=self.quantizers)
         # self.d_10 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=False, id=10, quant=self.quantizers)
 
-        self.weight_layer = Weights(vector_sizes=[1,5,5,5,4,3,2,1], use_cuda=use_cuda)
-        self.decoders = [self.d_1, self.d_6, self.d_7, self.d_8, self.d_9]
+        self.weight_layer = Weights(vector_sizes=[2,6,6,6,4,3,2,1], use_cuda=use_cuda)
+        self.decoders = [self.d_1, self.d_5, self.d_6, self.d_7, self.d_8, self.d_9]
 
     def freeze_encoder(self):
         for parameter in self.encoder.parameters():
@@ -91,8 +91,10 @@ class DepthEstimationNet(BaseModel):
         #print((x==0).any())
         if use_cuda:
             x.cuda()
-        x_d1, ord_labels = self.d_1(x)#regular
-        B,C,H,W = x_d1.size()
+        x_d1, ord_labels_1 = self.d_1(x)#regular
+        x_d5, ord_labels_5 = self.d_5(x)#regular
+        B,C,H1,W1 = x_d1.size()
+        _,_,H2,W2 = x_d5.size()
 
         x_d6 = torch.ones((B,C,8,8))
         x_d7 = torch.ones((B,C,16,16))
@@ -110,7 +112,8 @@ class DepthEstimationNet(BaseModel):
         #print(x_d7)
         # print("x_d1: {0}".format(torch.isnan(x_d1).any()))
         # print("x_d1 ord: {0}".format(torch.isnan(ord_labels).any()))
-        f_d1 = cp.decomp(torch.div(x_d1,cp.quick_gm(x_d1.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)), 7)[::-1]
+        f_d1 = cp.decomp(torch.div(x_d1,cp.quick_gm(x_d1.view(B,H1*W1,1), H1).expand(B,H1*W1).view(B,1,H1,W1)), 3)[::-1]
+        f_d5 = cp.decomp(torch.div(x_d5,cp.quick_gm(x_d5.view(B,H2*W2,1), H2).expand(B,H2*W2).view(B,1,H2,W2)), 7)[::-1]
         f_d6 = cp.decomp(x_d6, 3, relative_map=True)[::-1]
         f_d7 = cp.decomp(x_d7, 4, relative_map=True)[::-1]
         f_d8 = cp.decomp(x_d8, 5, relative_map=True)[::-1]
@@ -120,13 +123,13 @@ class DepthEstimationNet(BaseModel):
         #bring into matrix form
         # for f in f_d1:
         #     print(torch.isnan(f).any())
-        y_hat = cp.relative_fine_detail_matrix([f_d1, f_d6, f_d7, f_d8, f_d9], use_cuda)
+        y_hat = cp.relative_fine_detail_matrix([f_d1, f_d5, f_d6, f_d7, f_d8, f_d9], use_cuda)
         # for mat in y_hat:
         #     print("y_hat: {0}".format(torch.isnan(mat).any()))
         y_hat = self.weight_layer(y_hat)
         # for mat in y_hat:
         #     print("weighted y_hat: {0}".format(torch.isnan(mat).any()))
-        return y_hat, x_d1, ord_labels
+        return y_hat, (x_d1, x_d5), (ord_labels_1, ord_labels_5)
 
 class Decoder(nn.Module):
     def __init__(self, in_channels, num_wsm_layers, DORN, id, quant):
