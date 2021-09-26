@@ -100,12 +100,16 @@ class DepthEstimationNet(BaseModel):
         x_d7 = torch.ones((B,C,16,16))
         x_d8 = torch.ones((B,C,32,32))
         #x_d9 = torch.ones((B,C,64,64))
-
-        if self.config[5] == 1:
+        
+    
+        if int(self.config[5]) == 1:
+            #print("d6 active")
             x_d6 = self.d_6(x)#relative
-        if self.config[6] == 1:
+        if int(self.config[6]) == 1:
+            #print("d7 active")
             x_d7 = self.d_7(x)#relative
-        if self.config[7] == 1:
+        if int(self.config[7]) == 1:
+            #print("d8 active")
             x_d8 = self.d_8(x)#relative
         # if self.config[8] == 1:
         #     x_d9 = self.d_9(x)#relative

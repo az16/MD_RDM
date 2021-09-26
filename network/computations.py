@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import math
 import pytorch_lightning as pl
+import torchvision
 
 
 
@@ -544,7 +545,7 @@ def optimize_components(yhat, y, cuda):
     #debug_print_list(w)
     pred = yhat
     loss = squared_err(pred, y, cuda)
-    return pred, torch.mean(torch.as_tensor(loss))
+    return pred, torch.sum(torch.as_tensor(loss))
 
 def make_pred(w, A, cuda):
     weights = w
@@ -671,8 +672,14 @@ def get_labels_sid(args, depth):
     #     labels = labels.cuda()
     return labels.int()
 
+def normalize(self, batch):
+    B,C,H,W = batch.size()
+    if batch.is_cuda:
+        return torch.div(batch,quick_gm(batch.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W)).cuda()
+    return torch.div(batch,quick_gm(batch.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W))
+
 if __name__ == "__main__":
     test = torch.abs(torch.randn((4,3,226,226)))
-    dn_1 = torch.abs(torch.randn((4,1,16,16)))
-    print(resize(test, 128))
+    dn_1 = torch.abs(torch.randn((1,1,16,16)))
+    
 
