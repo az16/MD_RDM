@@ -133,6 +133,8 @@ class RelativeDephModule(pl.LightningModule):
         y_hat, _ = self.compute_final_depth(fine_details, y)
         y_hat = torch.exp(cp.resize(y_hat,226))
         smoothing_filter = cp.GaussianSmoothing(1, 3, 0.33333)
+        if is_cuda:
+            smoothing_filter = smoothing_filter.cuda()
         self.save_visual(torch.nn.functional.interpolate(x, size=128), cp.resize(norm, 128), smoothing_filter(cp.resize(y_hat, 130).float()), batch_idx)
         self.switch_config(self.current_epoch)
         return self.metric_logger.log_val(y_hat, norm)
