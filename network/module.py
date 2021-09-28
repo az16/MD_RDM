@@ -132,7 +132,8 @@ class RelativeDephModule(pl.LightningModule):
         fine_details, _, _ = self(x)
         y_hat, _ = self.compute_final_depth(fine_details, y)
         y_hat = torch.exp(cp.resize(y_hat,226))
-        self.save_visual(torch.nn.functional.interpolate(x, size=128), cp.resize(norm, 128), cp.resize(y_hat, 128), batch_idx)
+        smoothing_filter = cp.GaussianSmoothing(1, 3, 0.33333)
+        self.save_visual(torch.nn.functional.interpolate(x, size=128), cp.resize(norm, 128), smoothing_filter(cp.resize(y_hat, 130).float()), batch_idx)
         self.switch_config(self.current_epoch)
         return self.metric_logger.log_val(y_hat, norm)
     
@@ -171,15 +172,19 @@ class RelativeDephModule(pl.LightningModule):
         return torch.div(batch,cp.quick_gm(batch.view(B,H*W,1), H).expand(B,H*W).view(B,1,H,W))
     
     def switch_config(self, epoch):
+        # self.model.freeze_decoder(2)
+        # self.model.freeze_decoder(3)
+        # self.model.freeze_decoder(4)
         if epoch == self.limits[0]:
             self.model.freeze_encoder()
+            #self.model.unfreeze_decoder(2)
             self.model.update_config([1,0,0,0,1,1,0,0,0,0])
             print(self.model.config)
         elif epoch == self.limits[1]:
-            #self.model.freeze_decoder(1)
+            #self.model.unfreeze_decoder(3)
             self.model.update_config([1,0,0,0,1,1,1,0,0,0])
         elif epoch == self.limits[2]:
-            #self.model.freeze_decoder(2)
+            #self.model.unfreeze_decoder(4)
             self.model.update_config([1,0,0,0,1,1,1,1,0,0])
         # elif epoch == self.limits[3]:
         #     #self.model.freeze_decoder(3)
@@ -205,10 +210,4 @@ class RelativeDephModule(pl.LightningModule):
             filename = "{}/{}/version_{}/epoch{}.jpg".format(self.logger.save_dir, self.logger.name, self.logger.version, self.current_epoch)
             u.save_image(self.img_merge, filename)
     
-    def crop(self, variable, tw, th):
-
-        b, c, w, h = variable.size()
-        x1 = int(round((w - tw) / 2.))
-        y1 = int(round((h - th) / 2.))
-
-        return variable[:, :, x1:x1+tw, y1:y1+th]
+  

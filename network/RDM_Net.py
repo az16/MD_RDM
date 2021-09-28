@@ -45,9 +45,9 @@ class DepthEstimationNet(BaseModel):
         self.encoder = _make_encoder_()
         #Decoders 1-10
         #First 5 estimate regular depth maps using ordinal loss and SID algorithm
-        self.d_1 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=1, quant=self.quantizers)
+        # self.d_1 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=True, id=1, quant=self.quantizers)
         # self.d_2 = Decoder(in_channels=1056, num_wsm_layers=1, DORN=True, id=2, quant=self.quantizers)
-        # self.d_3 = Decoder(in_channels=1056, num_wsm_layers=2, DORN=True, id=3, quant=self.quantizers)
+        self.d_1 = Decoder(in_channels=1056, num_wsm_layers=2, DORN=True, id=3, quant=self.quantizers)
         # self.d_4 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=True, id=4, quant=self.quantizers)
         self.d_5 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=True, id=5, quant=self.quantizers)
         
@@ -58,7 +58,7 @@ class DepthEstimationNet(BaseModel):
         #self.d_9 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=False, id=9, quant=self.quantizers)
         # self.d_10 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=False, id=10, quant=self.quantizers)
 
-        self.weight_layer = Weights(vector_sizes=[2,5,5,5,3,2,1,1], use_cuda=use_cuda)
+        self.weight_layer = Weights(vector_sizes=[2,5,5,5,4,3,1,1], use_cuda=use_cuda)
         self.decoders = [self.d_1, self.d_5, self.d_6, self.d_7, self.d_8]
 
     def freeze_encoder(self):
@@ -68,6 +68,10 @@ class DepthEstimationNet(BaseModel):
     def freeze_decoder(self, id):
         for parameter in self.decoders[id].parameters():
             parameter.requires_grad = False
+    
+    def unfreeze_decoder(self, id):
+        for parameter in self.decoders[id].parameters():
+            parameter.requires_grad = True
     
     def update_config(self, config):
         self.config = config
@@ -116,7 +120,7 @@ class DepthEstimationNet(BaseModel):
         #print(x_d7)
         # print("x_d1: {0}".format(torch.isnan(x_d1).any()))
         # print("x_d1 ord: {0}".format(torch.isnan(ord_labels).any()))
-        f_d1 = cp.decomp(torch.div(x_d1,cp.quick_gm(x_d1.view(B,H1*W1,1), H1).expand(B,H1*W1).view(B,1,H1,W1)), 3)[::-1]
+        f_d1 = cp.decomp(torch.div(x_d1,cp.quick_gm(x_d1.view(B,H1*W1,1), H1).expand(B,H1*W1).view(B,1,H1,W1)), 5)[::-1]
         f_d5 = cp.decomp(torch.div(x_d5,cp.quick_gm(x_d5.view(B,H2*W2,1), H2).expand(B,H2*W2).view(B,1,H2,W2)), 7)[::-1]
         f_d6 = cp.decomp(x_d6, 3, relative_map=True)[::-1]
         f_d7 = cp.decomp(x_d7, 4, relative_map=True)[::-1]
@@ -157,7 +161,7 @@ class Decoder(nn.Module):
         #print(x.shape)
         if self.id > 5:
             x = self.conv1(x)#make feature map have only one channel
-        if self.id == 1 or self.id == 5:
+        if self.id in [1,2,3,4,5]:
             x = self.conv2(x)
            # print("Nan after conv2: {0}".format(torch.isnan(x).any()))
         x = self.ord_layer(x)
@@ -550,7 +554,7 @@ def _wsm_output_planes(decoder_id):
         return 1680
     elif decoder_id==7:
         return 832
-    elif decoder_id==8:
+    elif decoder_id==8 or decoder_id == 3:
         return 416
     elif decoder_id==9:
         return 208
