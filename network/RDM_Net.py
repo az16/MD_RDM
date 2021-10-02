@@ -52,14 +52,14 @@ class DepthEstimationNet(BaseModel):
         self.d_5 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=True, id=5, quant=self.quantizers)
         
         #Remaining 5 estimate relative depth maps using ALS
-        self.d_6 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=6, quant=self.quantizers)
-        self.d_7 = Decoder(in_channels=1056, num_wsm_layers=1, DORN=False, id=7, quant=self.quantizers)
-        self.d_8 = Decoder(in_channels=1056, num_wsm_layers=2, DORN=False, id=8, quant=self.quantizers)
+        # self.d_6 = Decoder(in_channels=1056, num_wsm_layers=0, DORN=False, id=6, quant=self.quantizers)
+        # self.d_7 = Decoder(in_channels=1056, num_wsm_layers=1, DORN=False, id=7, quant=self.quantizers)
+        # self.d_8 = Decoder(in_channels=1056, num_wsm_layers=2, DORN=False, id=8, quant=self.quantizers)
         # self.d_9 = Decoder(in_channels=1056, num_wsm_layers=3, DORN=False, id=9, quant=self.quantizers)
         # self.d_10 = Decoder(in_channels=1056, num_wsm_layers=4, DORN=False, id=10, quant=self.quantizers)
 
-        self.weight_layer = Weights(vector_sizes=[3,6,6,6,5,4,2,1], use_cuda=use_cuda)
-        self.decoders = [self.d_1, self.d_4, self.d_5, self.d_6, self.d_7, self.d_8]
+        self.weight_layer = Weights(vector_sizes=[1,1,1,1,1,1,1,1], use_cuda=use_cuda)
+        self.decoders = [self.d_5] #self.d_6, self.d_7, self.d_8]
 
     def freeze_encoder(self):
         for parameter in self.encoder.parameters():
@@ -95,53 +95,53 @@ class DepthEstimationNet(BaseModel):
         #print((x==0).any())
         if use_cuda:
             x.cuda()
-        x_d1, ord_labels_1 = self.d_1(x)#regular
-        x_d4, ord_labels_4 = self.d_4(x)#regular
+        #x_d1, ord_labels_1 = self.d_1(x)#regular
+        #x_d4, ord_labels_4 = self.d_4(x)#regular
         x_d5, ord_labels_5 = self.d_5(x)#regular
-        B,C,H1,W1 = x_d1.size()
-        _,_,H2,W2 = x_d5.size()
-        _,_,H3,W3 = x_d4.size()
+        #B,C,H1,W1 = x_d1.size()
+        B,C,H2,W2 = x_d5.size()
+        #_,_,H3,W3 = x_d4.size()
 
-        x_d6 = torch.ones((B,C,8,8))
-        x_d7 = torch.ones((B,C,16,16))
-        x_d8 = torch.ones((B,C,32,32))
+        #x_d6 = torch.ones((B,C,8,8))
+        #x_d7 = torch.ones((B,C,16,16))
+        #x_d8 = torch.ones((B,C,32,32))
         #x_d9 = torch.ones((B,C,64,64))
         
     
-        if int(self.config[5]) == 1:
-            #print("d6 active")
-            x_d6 = self.d_6(x)#relative
-        if int(self.config[6]) == 1:
-            #print("d7 active")
-            x_d7 = self.d_7(x)#relative
-        if int(self.config[7]) == 1:
-            #print("d8 active")
-            x_d8 = self.d_8(x)#relative
+        # if int(self.config[5]) == 1:
+        #     #print("d6 active")
+        #     x_d6 = self.d_6(x)#relative
+        # if int(self.config[6]) == 1:
+        #     #print("d7 active")
+        #     x_d7 = self.d_7(x)#relative
+        # if int(self.config[7]) == 1:
+        #     #print("d8 active")
+        #     x_d8 = self.d_8(x)#relative
         # if int(self.config[8]) == 1:
         #     #print("d9 active")
         #     x_d9 = self.d_9(x)#relative
         #print(x_d7)
         # print("x_d1: {0}".format(torch.isnan(x_d1).any()))
         # print("x_d1 ord: {0}".format(torch.isnan(ord_labels).any()))
-        f_d1 = cp.decomp(torch.div(x_d1,cp.quick_gm(x_d1.view(B,H1*W1,1), H1).expand(B,H1*W1).view(B,1,H1,W1)), 5)[::-1]
-        f_d4 = cp.decomp(torch.div(x_d4,cp.quick_gm(x_d4.view(B,H3*W3,1), H2).expand(B,H3*W3).view(B,1,H3,W3)), 6)[::-1]
+        #f_d1 = cp.decomp(torch.div(x_d1,cp.quick_gm(x_d1.view(B,H1*W1,1), H1).expand(B,H1*W1).view(B,1,H1,W1)), 5)[::-1]
+        #f_d4 = cp.decomp(torch.div(x_d4,cp.quick_gm(x_d4.view(B,H3*W3,1), H2).expand(B,H3*W3).view(B,1,H3,W3)), 6)[::-1]
         f_d5 = cp.decomp(torch.div(x_d5,cp.quick_gm(x_d5.view(B,H2*W2,1), H2).expand(B,H2*W2).view(B,1,H2,W2)), 7)[::-1]
-        f_d6 = cp.decomp(x_d6, 3, relative_map=True)[::-1]
-        f_d7 = cp.decomp(x_d7, 4, relative_map=True)[::-1]
-        f_d8 = cp.decomp(x_d8, 5, relative_map=True)[::-1]
+        # f_d6 = cp.decomp(x_d6, 3, relative_map=True)[::-1]
+        # f_d7 = cp.decomp(x_d7, 4, relative_map=True)[::-1]
+        # f_d8 = cp.decomp(x_d8, 5, relative_map=True)[::-1]
         #f_d9 = cp.decomp(x_d9, 6, relative_map=True)[::-1]
 
         #print(f_d6)
         #bring into matrix form
         # for f in f_d1:
         #     print(torch.isnan(f).any())
-        y_hat = cp.relative_fine_detail_matrix([f_d1, f_d4, f_d5, f_d6, f_d7, f_d8], use_cuda)
+        y_hat = cp.relative_fine_detail_matrix([f_d5], use_cuda)
         # for mat in y_hat:
         #     print("y_hat: {0}".format(torch.isnan(mat).any()))
         y_hat = self.weight_layer(y_hat)
         # for mat in y_hat:
         #     print("weighted y_hat: {0}".format(torch.isnan(mat).any()))
-        return y_hat, (x_d1, x_d5, x_d4), (ord_labels_1, ord_labels_5, ord_labels_4)
+        return y_hat, x_d5, ord_labels_5 #(x, x_d5, x_d4), (ord_labels_1, ord_labels_5, ord_labels_4)
 
 class Decoder(nn.Module):
     def __init__(self, in_channels, num_wsm_layers, DORN, id, quant):
@@ -150,7 +150,7 @@ class Decoder(nn.Module):
         """Code to assemble decoder block"""
         assert num_wsm_layers < 5 and num_wsm_layers >= 0
         self.id = id
-        self.dense_layer = torchvision.models.densenet._DenseBlock(24, 528, 8, 48, 0.0, True)
+        self.dense_layer = torchvision.models.densenet._DenseBlock(24, 1056, 8, 48, 0.0, True)
         self.wsm_block = _make_wsm_layers_(num_wsm_layers)
         self.conv1 = nn.Conv2d(in_channels=_wsm_output_planes(id), out_channels=1, kernel_size=1)
         self.conv2 = nn.Conv2d(in_channels=_wsm_output_planes(id), out_channels=180, kernel_size=1)
@@ -205,7 +205,7 @@ class WSMLayer(nn.Module):
 
         #This makes sure wsm blocks can be cascaded
         if(self.id == 1):
-            raw = 1680
+            raw = 2208
         else:
             raw = int(2*in_channels)
 
@@ -522,24 +522,24 @@ def _make_encoder_():
 def _get_denseNet_Components(denseNet):
 
     encoder = nn.Module()
-    encoder.conv_e1 = nn.Conv2d(in_channels=3, kernel_size=7, stride=2, out_channels=48, padding=3)
+    encoder.conv_e1 = nn.Conv2d(in_channels=3, kernel_size=7, stride=2, out_channels=96, padding=3)
     encoder.max_e1 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-    encoder.dense_e2 = denseNet._DenseBlock(6, 48, 57, 48, 0.0, True)
-    encoder.trans_e2 = denseNet._Transition(num_input_features=336, num_output_features=96)
-    encoder.dense_e3 = denseNet._DenseBlock(12, 96, 29, 48, 0.0, True)
-    encoder.trans_e3 = denseNet._Transition(num_input_features=672, num_output_features=192)
-    encoder.dense_e4 = denseNet._DenseBlock(36, 192, 15, 48, 0.0, True)
-    encoder.trans_e4 = denseNet._Transition(num_input_features=1920, num_output_features=528)
+    encoder.dense_e2 = denseNet._DenseBlock(6, 96, 57, 48, 0.0, True)
+    encoder.trans_e2 = denseNet._Transition(num_input_features=384, num_output_features=192)
+    encoder.dense_e3 = denseNet._DenseBlock(12, 192, 29, 48, 0.0, True)
+    encoder.trans_e3 = denseNet._Transition(num_input_features=768, num_output_features=384)
+    encoder.dense_e4 = denseNet._DenseBlock(36, 384, 15, 48, 0.0, True)
+    encoder.trans_e4 = denseNet._Transition(num_input_features=2112, num_output_features=1056)
     encoder.pad_br = nn.ZeroPad2d((0,1,0,1))
 
     return encoder
 
 def _make_wsm_layers_(num_of_layers):
     
-    wsm_d1 = WSMLayer(832, 16, 16, 1)
-    wsm_d2 = WSMLayer(416, 32, 32, 2)
-    wsm_d3 = WSMLayer(208, 64, 64, 3)
-    wsm_d4 = WSMLayer(104, 128, 128, 4)
+    wsm_d1 = WSMLayer(1664, 16, 16, 1)
+    wsm_d2 = WSMLayer(832, 32, 32, 2)
+    wsm_d3 = WSMLayer(416, 64, 64, 3)
+    wsm_d4 = WSMLayer(208, 128, 128, 4)
 
     wsm_block = nn.Sequential()
     if num_of_layers > 0:
@@ -555,15 +555,15 @@ def _make_wsm_layers_(num_of_layers):
 
 def _wsm_output_planes(decoder_id):
     if decoder_id==6 or decoder_id == 1:
-        return 1680
+        return 2208
     elif decoder_id==7:
-        return 832
+        return 1664
     elif decoder_id==8 or decoder_id == 3:
-        return 416
+        return 832
     elif decoder_id==9 or decoder_id == 4:
-        return 208
+        return 416
     elif decoder_id==10 or decoder_id == 5:
-        return 104
+        return 208
     else:
         raise NameError
 
