@@ -57,7 +57,7 @@ class RelativeDephModule(pl.LightningModule):
         train_param = self.model.parameters()
         # Training parameters
         optimizer = torch.optim.AdamW(train_param, lr=self.hparams.learning_rate)
-        lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=4)
+        lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=3)
         scheduler = {
             'scheduler': lr_scheduler,
             'monitor': 'val_delta1'
@@ -87,6 +87,7 @@ class RelativeDephModule(pl.LightningModule):
             y = y.cuda() 
         
         y = self.mask(y)
+
         fine_details, ord_depth_pred, ord_label_pred = self(x)
         odp_d1, olp_d1 = ord_depth_pred[0], ord_label_pred[0]
         odp_d2, olp_d2 = ord_depth_pred[1], ord_label_pred[1]
