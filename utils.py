@@ -82,7 +82,7 @@ def colored_depthmap(depth, d_min=None, d_max=None, do_mapping=True):
     depth_relative = (depth - d_min) / (d_max - d_min)
     depth_relative *= 255
     depth_relative = depth_relative.astype(np.uint8)
-    if do_mapping:return cv2.applyColorMap(depth_relative, cv2.COLORMAP_INFERNO)  # H, W, C
+    if do_mapping:return cv2.applyColorMap(depth_relative, cv2.COLORMAP_VIRIDIS)  # H, W, C
     return depth_relative
 
 
