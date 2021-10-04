@@ -115,12 +115,13 @@ class RelativeDephModule(pl.LightningModule):
         ord_loss = ord_loss_d1 + ord_loss_d2 + ord_loss_d3 + ord_loss_d4 + ord_loss_d5 
        
         final_depth, fine_detail_loss = self.compute_final_depth(fine_details, cp.resize(y,128))
+        #fine_detail_loss *= 1000.0
         final_depth = cp.resize(final_depth, 226).float()
         final_depth = torch.exp(final_depth)
 
         mse = self.criterion(final_depth, self.normalize(y))
 
-        loss_all = mse + ord_loss + fine_detail_loss
+        loss_all = mse + ord_loss + fine_detail_loss 
 
         #self.save_visual(self.crop(x,128,128), cp.resize(y, 128), cp.resize(final_depth, 128), batch_idx)
 
