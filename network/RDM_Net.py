@@ -159,7 +159,7 @@ class Decoder(nn.Module):
         self.dense_layer = torchvision.models.densenet._DenseBlock(24, 1056, 8, 48, 0.0, True)
         self.wsm_block = _make_wsm_layers_(num_wsm_layers)
         self.conv1 = nn.Conv2d(in_channels=_wsm_output_planes(id), out_channels=1, kernel_size=1)
-        self.conv2 = nn.Conv2d(in_channels=_wsm_output_planes(id), out_channels=136, kernel_size=1)
+        self.conv2 = nn.Conv2d(in_channels=_wsm_output_planes(id), out_channels=160, kernel_size=1)
         self.ord_layer = Ordinal_Layer(id, DORN, quant)
 
     def forward(self, x):
@@ -171,8 +171,8 @@ class Decoder(nn.Module):
         #print(x.shape)
         if self.id > 5:
             x = self.conv1(x)#make feature map have only one channel
-        if self.id in [1,2,3,4,5]:
-            x = self.conv2(x)
+        #if self.id in [1,2,3,4,5]:
+        #    x = self.conv2(x)
            # print("Nan after conv2: {0}".format(torch.isnan(x).any()))
         x = self.ord_layer(x)
         #print("Nan after ordinal1: {0}".format(torch.isnan(x[0]).any()))
