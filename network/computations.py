@@ -423,6 +423,7 @@ def decomp(dn, n, relative_map=False):
         result.append(fn)
         dn = dn_1
         n -= 1
+        #print(dn.size())
 
     if not relative_map:
         result.append(dn)
@@ -580,9 +581,9 @@ def squared_err(yhat, y, cuda):
             print(True, y[i])
 
         if cuda:
-            sqr_err_list.append(torch.nn.MSELoss()(torch.exp(yhat[i]),torch.exp(y[i])).cuda())
+            sqr_err_list.append(torch.nn.MSELoss()((yhat[i]),(y[i]).cuda()))
         else:
-            sqr_err_list.append(torch.nn.MSELoss()(torch.exp(yhat[i]),torch.exp(y[i])))
+            sqr_err_list.append(torch.nn.MSELoss()((yhat[i]),(y[i])))
         
 
     return sqr_err_list

@@ -119,7 +119,7 @@ class RelativeDephModule(pl.LightningModule):
         final_depth = cp.resize(final_depth, 226).float()
         final_depth = torch.exp(final_depth)
 
-        mse = self.criterion(final_depth, self.normalize(y))
+        mse = self.criterion(final_depth,y)
 
         loss_all = mse + ord_loss + fine_detail_loss 
 
@@ -128,7 +128,7 @@ class RelativeDephModule(pl.LightningModule):
         self.log("MSE", mse, prog_bar=True)
         self.log("Ord_Loss", ord_loss, prog_bar=True)
         self.log("Fine_Detail", fine_detail_loss, prog_bar=True)  
-        return self.metric_logger.log_train(final_depth, self.normalize(y), loss_all)
+        return self.metric_logger.log_train(final_depth, y, loss_all)
 
     def validation_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
@@ -146,21 +146,21 @@ class RelativeDephModule(pl.LightningModule):
 
         fine_details, _, _ = self(x)
         y_hat, _ = self.compute_final_depth(fine_details, y)
-        y_hat = torch.exp(cp.resize(y_hat,226))
 
         #smoothing_filter = cp.GaussianSmoothing(1, 3, 0.33333)
         #if is_cuda:
         #    smoothing_filter = smoothing_filter.cuda()
-        self.save_visual(torch.nn.functional.interpolate(x, size=128), cp.resize(norm, 128), cp.resize(y_hat, 128), batch_idx)
+        self.save_visual(torch.nn.functional.interpolate(x, size=128), cp.resize(norm, 128), torch.exp(y_hat), batch_idx)
 
-        self.switch_config(self.current_epoch)
+        #self.switch_config(self.current_epoch)
+        y_hat = torch.exp(cp.resize(y_hat,226))
         return self.metric_logger.log_val(y_hat, norm)
     
     def compute_final_depth(self, fine_detail_list, target):
         #decompose target map
         B,C,H,W = target.size()
 
-        component_target = cp.decomp(self.normalize(target), 7)[::-1]
+        component_target = cp.decomp(target, 7)[::-1]
         #tmp = cp.alt_resize(target, n=4)
         #print("Nan after norm: {0}".format(torch.isnan(self.normalize(target)).any()))
         #print("Nan after sid: {0}".format(torch.isinf(u.depth2label_sid(target, cuda=is_cuda)).any()))
