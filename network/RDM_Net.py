@@ -171,8 +171,8 @@ class Decoder(nn.Module):
         #print(x.shape)
         if self.id > 5:
             x = self.conv1(x)#make feature map have only one channel
-        #if self.id in [1,2,3,4,5]:
-        #    x = self.conv2(x)
+        if self.id in [1,2,3,4,5]:
+            x = self.conv2(x)
            # print("Nan after conv2: {0}".format(torch.isnan(x).any()))
         x = self.ord_layer(x)
         #print("Nan after ordinal1: {0}".format(torch.isnan(x[0]).any()))

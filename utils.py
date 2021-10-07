@@ -176,7 +176,7 @@ def get_depth_sid(args, labels, cuda = False):
     elif args == 'nyu':
         min = 0.02
         max = 10.0
-        K = 1104.0
+        K = 80.0
     elif args == 'floorplan3d':
         min = 0.0552
         max = 10.0
