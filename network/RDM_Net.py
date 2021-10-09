@@ -159,7 +159,7 @@ class Decoder(nn.Module):
         self.dense_layer = torchvision.models.densenet._DenseBlock(24, 1056, 8, 48, 0.0, True)
         self.wsm_block = _make_wsm_layers_(num_wsm_layers)
         self.conv1 = nn.Conv2d(in_channels=_wsm_output_planes(id), out_channels=1, kernel_size=1)
-        self.conv2 = nn.Conv2d(in_channels=_wsm_output_planes(id), out_channels=180, kernel_size=1)
+        self.conv2 = nn.Conv2d(in_channels=_wsm_output_planes(id), out_channels=160, kernel_size=1)
         self.ord_layer = Ordinal_Layer(id, DORN, quant)
 
     def forward(self, x):
