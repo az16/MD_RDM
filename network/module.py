@@ -150,7 +150,7 @@ class RelativeDephModule(pl.LightningModule):
         #smoothing_filter = cp.GaussianSmoothing(1, 3, 0.33333)
         #if is_cuda:
         #    smoothing_filter = smoothing_filter.cuda()
-        self.save_visual(torch.nn.functional.interpolate(x, size=128), y, torch.exp(y_hat), batch_idx)
+        self.save_visual(torch.nn.functional.interpolate(x, size=128), cp.resize(norm, 128), torch.exp(y_hat), batch_idx)
 
         #self.switch_config(self.current_epoch)
         y_hat = torch.exp(cp.resize(y_hat,226))
