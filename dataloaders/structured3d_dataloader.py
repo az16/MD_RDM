@@ -1,134 +1,91 @@
 import numpy as np
-import dataloaders.transforms as transforms
-import torch.utils.data as data
-import pathlib
-import glob
-import os
+import torchvision.transforms as transforms
+import torchvision.transforms.functional as TF
+from dataset import BaseDataset
+from pathlib import Path
 from PIL import Image
+#Image.LOAD_TRUNCATED_IMAGES = True
+from tqdm import tqdm
 
-iheight, iwidth = 512, 1024  # raw image size
+class Structured3DDataset(BaseDataset):
+    def __init__(self, path, dataset_type='panorama_empty', output_size=(360, 640), resize=400, *args, **kwargs):
+        super(Structured3DDataset, self).__init__(*args, **kwargs)
+        assert dataset_type in ['perspective', 'panorama','panorama_empty', 'panorama_simple', 'panorama_full']
+        self.dataset_type = dataset_type
+        self.output_size = output_size
+        self.resize = resize
+        self.path = path
+        self.load_scene_names()
+        self.load_images()
 
-def PILLoader(file):
-    assert os.path.exists(file), "file not found: {}".format(file)
-    return np.asarray(Image.open(file).convert('RGB'), dtype=np.uint8)
-
-def DepthLoader(file):
-    # loads depth map D from png file
-    assert os.path.exists(file), "file not found: {}".format(file)
-    depth_png = np.array(Image.open(file), dtype=np.uint16) # uint16 --> [0,65535] in millimeters
-    depth = depth_png/1000 #conversion to meters [0, 65.535]
-    np.clip(depth, 0, 10, depth) # clip to range[0..10] in meters
-    depth /= 10.0 #normalize to range [0,1]
-    depth *= 10.0
-    return depth
-
-to_tensor = transforms.ToTensor()
-
-class Structured3DDataset(data.Dataset):
-    color_jitter = transforms.ColorJitter(0.4, 0.4, 0.4)
-    def __init__(self, root, dataset_type, split):
-        self.output_size = (228, 405)
-        self.root = root
-
-        dir_list = list(pathlib.Path("/mnt/hdd/shared_datasets/Structured3D").glob("*"))
-        #print('Found {} folders in root path.'.format(len(dir_list)))
-        #print(*dir_list, sep = "\n")
-        file_list = []
-        #print(split)
-        if split == 'train':
-            for dir in dir_list[0:3000]:
-                rendering_path = pathlib.Path("{}/{}".format(dir,"2D_rendering")).glob("*")
-                for path in rendering_path:
-                    rgpPath = "{}/{}".format(path, 'panorama/empty/rgb_rawlight.png')
-                    depthPath = "{}/{}".format(path, 'panorama/empty/depth.png')
-                    entry = rgpPath+" "+depthPath
-                    file_list.append(entry)
-        elif split == 'val':
-            for dir in dir_list[3000:]:
-                if not(dir == '/mnt/hdd/shared_datasets/Structured3D/README.md'):
-                    rendering_path = pathlib.Path("{}/{}".format(dir,"2D_rendering")).glob("*")
-                    for path in rendering_path:
-                        rgpPath = "{}/{}".format(path, 'panorama/empty/rgb_rawlight.png')
-                        depthPath = "{}/{}".format(path, 'panorama/empty/depth.png')
-                        entry = rgpPath+" "+depthPath
-                        file_list.append(entry)
-
-
-
-        self.imgs = file_list
-        print('Total of {} files added to {} samples.'.format(len(file_list), split))
-
-        self.depth_loader = DepthLoader
-        self.color_loader = PILLoader
-
-        if split == 'train':
-            self.transform = self.train_transform
-        elif split == 'val':
-            self.transform = self.val_transform
+    def load_scene_names(self):
+        invalid_scenes = ["scene_01155", "scene_01714", "scene_01816", "scene_03398", "scene_01192", "scene_01852"]
+        if self.split == 'train':
+            self.scene_names = [d.stem for d in Path(self.path).glob("*") if (d.is_dir() and d not in invalid_scenes)][0:3000]
+        else:
+            self.scene_names = [d.stem for d in Path(self.path).glob("*") if (d.is_dir() and d not in invalid_scenes)][3000:]
         
 
-    def train_transform(self, rgb, depth):       
-        s = np.random.uniform(1.0, 1.5)  # random scaling
-        depth_np = depth / s
-        angle = np.random.uniform(-5.0, 5.0)  # random rotation degrees
-        do_flip = np.random.uniform(0.0, 1.0) < 0.5  # random horizontal flip
-
-        # perform 1st step of data augmentation
-        transform = transforms.Compose([
-            transforms.Resize(250.0 / iheight),  # this is for computational efficiency, since rotation can be slow
-            transforms.Rotate(angle),
-            transforms.Resize(s),
-            transforms.CenterCrop(self.output_size),
-            transforms.HorizontalFlip(do_flip)
-        ])
+    def load_images(self):
+        self.images = []
+        for scene_name in tqdm(self.scene_names, desc="Loading image paths"):
+            scene_directory = Path(self.path)/scene_name
+            self.images += [img.as_posix() for img in scene_directory.glob("**/*") if "rgb_rawlight" in img.name and self.dataset_type.split('_')[-1] in img.as_posix()]
+        print("Found {} images.".format(self.__len__()))
         
-        rgb_np = transform(rgb)
-        rgb_np = self.color_jitter(rgb_np)  # random color jittering
-        rgb_np = np.asfarray(rgb_np, dtype='float') / 255
-        
-        depth_np = transform(depth_np)
-    
-        return rgb_np, depth_np
-
-    def val_transform(self, rgb, depth):
-        depth_np = depth
-        transform = transforms.Compose([
-            transforms.Resize(240.0 / iheight),
-            transforms.CenterCrop(self.output_size),
-        ])
-        rgb_np = transform(rgb)
-        rgb_np = np.asfarray(rgb_np, dtype='float') / 255
-        depth_np = transform(depth_np)
-
-        return rgb_np, depth_np
-
-    def __getraw__(self, index):
-        """
-        Args:
-            index (int): Index
-
-        Returns:
-            tuple: (rgb, depth) the raw data.
-        """
-        (path, target) = self.imgs[index].strip().split(" ")
-        rgb = self.color_loader(path)
-        depth = self.depth_loader(target)
+    def training_preprocess(self, rgb, depth):
+        s = np.random.uniform(1, 1.5)
+        # color jitter
+        rgb = transforms.ColorJitter(0.4, 0.4, 0.4)(rgb)
+        # Resize
+        resize = transforms.Resize(self.resize)
+        rgb = resize(rgb)
+        depth = resize(depth)
+        # Random Rotation
+        angle = np.random.uniform(-5,5)
+        rgb = TF.rotate(rgb, angle)
+        depth = TF.rotate(depth, angle)
+        # Resize
+        resize = transforms.Resize(int(self.resize * s))
+        rgb = resize(rgb)
+        depth = resize(depth)
+        # Center crop
+        crop = transforms.CenterCrop(self.output_size)
+        rgb = crop(rgb)
+        depth = crop(depth)
+        # Random horizontal flipping
+        if np.random.uniform(0,1) > 0.5:
+            rgb = TF.hflip(rgb)
+            depth = TF.hflip(depth)
+        # Transform to tensor
+        rgb = TF.to_tensor(np.array(rgb))
+        depth = np.array(depth, dtype=np.float32)
+        depth /= 1000 
+        depth = np.clip(depth, 0, 10)
+        depth = depth / s
+        depth = TF.to_tensor(depth)
         return rgb, depth
 
-    def __getitem__(self, index):
-        rgb, depth = self.__getraw__(index)
-        if self.transform is not None:
-            rgb_np, depth_np = self.transform(rgb, depth)
-        else:
-            raise (RuntimeError("transform not defined"))
+    def validation_preprocess(self, rgb, depth):
+        # Resize
+        resize = transforms.Resize(self.resize)
+        rgb = resize(rgb)
+        depth = resize(depth)
+        # Center crop
+        crop = transforms.CenterCrop(self.output_size)
+        rgb = crop(rgb)
+        depth = crop(depth)
+        # Transform to tensor
+        rgb = TF.to_tensor(np.array(rgb))
+        depth = np.array(depth, dtype=np.float32)
+        depth /= 1000
+        depth = np.clip(depth, 0, 10)
+        depth = TF.to_tensor(depth)
+        return rgb, depth
 
-        input_tensor = to_tensor(rgb_np)
-        while input_tensor.dim() < 3:
-            input_tensor = input_tensor.unsqueeze(0)
-        depth_tensor = to_tensor(depth_np)
-        depth_tensor = depth_tensor.unsqueeze(0)
-
-        return input_tensor, depth_tensor
-
-    def __len__(self):
-        return len(self.imgs)
+    def get_raw(self, index):
+        rgb_path = self.images[index]
+        depth_path = rgb_path.replace("rgb_rawlight", "depth")
+        rgb = Image.open(rgb_path).convert('RGB')
+        depth = Image.open(depth_path)
+        return rgb, depth

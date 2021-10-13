@@ -7,6 +7,7 @@ import torchvision.transforms.functional as TF
 import pytorch_lightning as pl
 import numpy as np
 from torch import cuda
+from dataloaders.structured3d_dataloader import Structured3DDataset
 from metrics import MetricLogger
 from network import RDM_Net, computations
 from network.RDM_Net import DepthEstimationNet
@@ -22,12 +23,12 @@ class RelativeDephModule(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self.metric_logger = MetricLogger(metrics=metrics, module=self)
-        self.train_loader = torch.utils.data.DataLoader(NYUDataset(path, dataset_type=dataset_type, split="train", output_size=(226, 226)),
+        self.train_loader = torch.utils.data.DataLoader(Structured3DDataset(path, dataset_type=dataset_type, split="train", output_size=(226, 226)),
                                                     batch_size=batch_size, 
                                                     shuffle=True, 
                                                     num_workers=worker, 
                                                     pin_memory=True)
-        self.val_loader = torch.utils.data.DataLoader(NYUDataset(path, dataset_type='labeled', split="val", output_size=(226, 226)),
+        self.val_loader = torch.utils.data.DataLoader(Structured3DDataset(path, dataset_type=dataset_type, split="val", output_size=(226, 226)),
                                                     batch_size=1, 
                                                     shuffle=False, 
                                                     num_workers=worker, 
