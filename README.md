@@ -24,12 +24,9 @@ This is a pytorch implementation of 'Monocular Depth Estimation Using Relative D
 - [x] Dataloaders + Augmentation
 - [x] Training (in progress)
 # Debugging and current Issues
-## Current Issues
 --
-## Current Training Progress
-Configurations:
-- [x] Encoder + D3                                        (lr = 1-e4, b = 4, epochs = 15)              Result: d1 = 0.6 
-- [ ] Encoder (frozen weights) + D3 + D6                  (lr = 1-e4, b = 4, epochs = 15)
-- [ ] Encoder (frozen weights) + D3 + D6 + D7             (lr = 1-e4, b = 4, epochs = 15)
-- [ ] Encoder (frozen weights) + D3 + D6 + D7 + D8        (lr = 1-e4, b = 4, epochs = 15)
-- [ ] Encoder (frozen weights) + D3 + D6 + D7 + D8 + D9   (lr = 1-e4, b = 4, epochs = 15)
+# Best Configurations
+* D5 + D6 + D7 + D8
+* D2 + D3 + D4 + D5 + D6
+* D1 + D4 + D5 + D6 + D8
+* D1 + D2 + D3 + D4 + D5
