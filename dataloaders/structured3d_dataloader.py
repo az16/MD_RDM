@@ -1,7 +1,7 @@
 import numpy as np
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as TF
-from dataset import BaseDataset
+from dataloaders.dataset import BaseDataset
 from pathlib import Path
 from PIL import Image
 #Image.LOAD_TRUNCATED_IMAGES = True
