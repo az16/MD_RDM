@@ -155,7 +155,7 @@ class RelativeDephModule(pl.LightningModule):
 
         #self.switch_config(self.current_epoch)
         y_hat = torch.exp(cp.resize(y_hat,226))
-        return self.metric_logger.log_val(y_hat, norm)
+        return self.metric_logger.log_val(y_hat, y_origin)
     
     def compute_final_depth(self, fine_detail_list, target):
         #decompose target map
