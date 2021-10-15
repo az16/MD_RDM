@@ -156,7 +156,7 @@ class RelativeDephModule(pl.LightningModule):
         #self.switch_config(self.current_epoch)
         y_hat = torch.exp(cp.resize(y_hat,226))
         
-        if torch.sum(y_origin > 0) < 0:
+        if torch.sum(y_origin > 0) <= 0:
             norm = y_hat
 
         return self.metric_logger.log_val(y_hat, norm)
