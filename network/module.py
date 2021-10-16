@@ -151,15 +151,15 @@ class RelativeDephModule(pl.LightningModule):
         #smoothing_filter = cp.GaussianSmoothing(1, 3, 0.33333)
         #if is_cuda:
         #    smoothing_filter = smoothing_filter.cuda()
-        self.save_visual(torch.nn.functional.interpolate(x, size=128), cp.resize(norm, 128), torch.exp(y_hat), batch_idx)
+        self.save_visual(torch.nn.functional.interpolate(x, size=128), cp.resize(y_origin, 128), torch.exp(y_hat), batch_idx)
 
         #self.switch_config(self.current_epoch)
         y_hat = torch.exp(cp.resize(y_hat,226))
         
         if torch.sum(y_origin > 0) <= 0:
-            norm = y_hat
+            y_origin = y
 
-        return self.metric_logger.log_val(y_hat, norm)
+        return self.metric_logger.log_val(y_hat, y_origin)
     
     def compute_final_depth(self, fine_detail_list, target):
         #decompose target map

@@ -184,7 +184,7 @@ def get_depth_sid(args, labels, cuda = False):
     elif args == 'Structured3D':
         min = 0.02
         max = 10.0
-        K = 68.0
+        K = 90.0
     else:
         print('No Dataset named as ', args.dataset)
 
@@ -223,7 +223,7 @@ def get_labels_sid(args, depth, cuda=False):
     elif args == 'Structured3D':
         alpha = 0.02
         beta = 10.0
-        K = 68
+        K = 90.0
     else:
         print('No Dataset named as ', args.dataset)
 
@@ -243,7 +243,7 @@ def get_labels_sid(args, depth, cuda=False):
         labels = labels.cuda()
     return labels.int()
 
-def depth2label_sid(depth, K=90.0, alpha=0.02, beta=10.0, cuda=False):
+def depth2label_sid(depth, K=68.0, alpha=0.02, beta=10.0, cuda=False):
     alpha = torch.tensor(alpha)
     beta = torch.tensor(beta)
     K = torch.tensor(K)

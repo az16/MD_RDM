@@ -8,7 +8,7 @@ from PIL import Image
 from tqdm import tqdm
 
 class Structured3DDataset(BaseDataset):
-    def __init__(self, path, dataset_type='panorama_empty', output_size=(360, 640), resize=400, *args, **kwargs):
+    def __init__(self, path, dataset_type='panorama_simple', output_size=(360, 640), resize=400, *args, **kwargs):
         super(Structured3DDataset, self).__init__(*args, **kwargs)
         assert dataset_type in ['perspective', 'panorama','panorama_empty', 'panorama_simple', 'panorama_full']
         self.dataset_type = dataset_type
