@@ -157,7 +157,7 @@ class RelativeDephModule(pl.LightningModule):
         y_hat = torch.exp(cp.resize(y_hat,226))
         
         if torch.sum(y_origin > 0) <= 0:
-            y_origin = y
+            y_origin = self.mask(y_origin)
 
         return self.metric_logger.log_val(y_hat, y_origin)
     
