@@ -4,7 +4,7 @@ import torchvision.transforms.functional as TF
 from dataloaders.dataset import BaseDataset
 from pathlib import Path
 from PIL import Image
-#Image.LOAD_TRUNCATED_IMAGES = True
+Image.LOAD_TRUNCATED_IMAGES = True
 from tqdm import tqdm
 
 class Structured3DDataset(BaseDataset):

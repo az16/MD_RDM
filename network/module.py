@@ -157,9 +157,11 @@ class RelativeDephModule(pl.LightningModule):
         y_hat = torch.exp(cp.resize(y_hat,226))
         
         if torch.sum(y_origin > 0) <= 0:
-            y_origin = self.mask(y_hat)
+            print(torch.isnan(y_origin).any())
+            print((y_origin>0).any())
+            norm = self.normalize(self.mask(y_origin))
 
-        return self.metric_logger.log_val(y_hat, y_origin)
+        return self.metric_logger.log_val(y_hat, norm)
     
     def compute_final_depth(self, fine_detail_list, target):
         #decompose target map
