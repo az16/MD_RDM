@@ -119,6 +119,7 @@ class RelativeDephModule(pl.LightningModule):
         #fine_detail_loss *= 1000.0
         final_depth = cp.resize(final_depth, 226).float()
         final_depth = torch.exp(final_depth)
+        final_depth = torch.clamp(min=0.02, max=10)
 
         mse = self.criterion(final_depth, y)
 
@@ -159,6 +160,7 @@ class RelativeDephModule(pl.LightningModule):
         if torch.sum(y_origin > 0) <= 0:
             print(torch.isnan(y_origin).any())
             print((y_origin>0).any())
+
             norm = self.normalize(self.mask(y_origin))
 
         return self.metric_logger.log_val(y_hat, norm)
