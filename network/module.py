@@ -119,7 +119,7 @@ class RelativeDephModule(pl.LightningModule):
         #fine_detail_loss *= 1000.0
         final_depth = cp.resize(final_depth, 226).float()
         final_depth = torch.exp(final_depth)
-        final_depth = torch.clamp(input=final_depth, min=0.02, max=10)
+        #final_depth = torch.clamp(input=final_depth, min=0.02, max=10)
 
         mse = self.criterion(final_depth, y)
 
