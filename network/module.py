@@ -121,7 +121,7 @@ class RelativeDephModule(pl.LightningModule):
         final_depth = torch.exp(final_depth)
         #final_depth = torch.clamp(input=final_depth, min=0.02, max=10)
 
-        mse = self.criterion(final_depth, self.normalize(y))
+        mse = self.criterion(final_depth, y)
 
         loss_all = mse + ord_loss + fine_detail_loss 
 
@@ -130,7 +130,7 @@ class RelativeDephModule(pl.LightningModule):
         self.log("MSE", mse, prog_bar=True)
         self.log("Ord_Loss", ord_loss, prog_bar=True)
         self.log("Fine_Detail", fine_detail_loss, prog_bar=True)  
-        return self.metric_logger.log_train(final_depth, self.normalize(y), loss_all)
+        return self.metric_logger.log_train(final_depth, y, loss_all)
 
     def validation_step(self, batch, batch_idx):
         if batch_idx == 0: self.metric_logger.reset()
@@ -161,7 +161,7 @@ class RelativeDephModule(pl.LightningModule):
             print(torch.isnan(y_origin).any())
             print((y_origin>0).any())
 
-            norm = self.normalize(self.mask(y_origin))
+            norm = self.mask(y_origin)
 
         return self.metric_logger.log_val(y_hat, norm)
     
