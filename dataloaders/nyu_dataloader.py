@@ -116,7 +116,26 @@ class NYUDataset(BaseDataset):
                 self.path.parent.mkdir(parents=True, exist_ok=True)
                 download(self.path.parent/"nyudepthv2.tar.gz", NYU_V2_SPARSE2DENSE_URL)
                 with tarfile.open(self.path.parent/"nyudepthv2.tar.gz", "r") as targz:
-                    targz.extractall(self.path.parent)                
+                    def is_within_directory(directory, target):
+                        
+                        abs_directory = os.path.abspath(directory)
+                        abs_target = os.path.abspath(target)
+                    
+                        prefix = os.path.commonprefix([abs_directory, abs_target])
+                        
+                        return prefix == abs_directory
+                    
+                    def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+                    
+                        for member in tar.getmembers():
+                            member_path = os.path.join(path, member.name)
+                            if not is_within_directory(path, member_path):
+                                raise Exception("Attempted Path Traversal in Tar File")
+                    
+                        tar.extractall(path, members, numeric_owner=numeric_owner) 
+                        
+                    
+                    safe_extract(targz, self.path.parent)
             self.images = [path.as_posix() for path in self.path.glob("**/*") if path.name.endswith('.h5')]
         else:
             self.path = Path(path)
